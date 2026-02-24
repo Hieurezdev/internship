@@ -1,0 +1,4193 @@
+{% extends 'accounts/base.html' %}
+{% load static %}
+
+{% block title %}Chat Nâng Cao - WoxionChat{% endblock %}
+
+{% block content %}
+<!-- Thêm thư viện marked.js để xử lý Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+    /* Inter Font - ChatGPT style */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important; 
+        color: #3c4043;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        overflow: hidden; 
+    }
+    
+    /* === THANH THÔNG BÁO === */
+    .notification-bar {
+        position: fixed;
+        top: 70px; /* Dưới navbar */
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        background: linear-gradient(135deg, #10a37f, #0d8a6b);
+        color: white;
+        padding: 12px 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-100%);
+        transition: transform 0.3s ease-in-out;
+        /* border-bottom: 3px solid #0d8a6b; */
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+    
+    /* === TYPEWRITER EFFECT === */
+    .typewriter-cursor {
+        animation: blink-cursor 1s infinite;
+        font-weight: bold;
+        color: #10a37f;
+    }
+    
+    @keyframes blink-cursor {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+    }
+    
+    .message.bot.typing {
+        background: rgba(16, 163, 127, 0.05);
+        border-left: 3px solid #10a37f;
+    }
+    
+    .message.bot.typing .message-content {
+        animation: subtle-pulse 1.5s infinite;
+    }
+    
+    @keyframes subtle-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+    
+    .notification-bar.show {
+        transform: translateY(0);
+    }
+    
+    .notification-bar.success {
+        background: #10a37f;
+        border-bottom-color: #1e7e34;
+    }
+    
+    .notification-bar.error {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        border-bottom-color: #bd2130;
+    }
+    
+    .notification-bar.warning {
+        background: linear-gradient(135deg, #ffc107, #e0a800);
+        border-bottom-color: #d39e00;
+        color: #212529;
+    }
+    
+    .notification-bar.info {
+        background: linear-gradient(135deg, #17a2b8, #138496);
+        border-bottom-color: #117a8b;
+    }
+    
+    .notification-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .notification-icon {
+        font-size: 1.2rem;
+        min-width: 20px;
+    }
+    
+    .notification-message {
+        font-size: 0.95rem;
+        line-height: 1.4;
+        flex: 1;
+    }
+    
+    .notification-close {
+        background: none;
+        border: none;
+        color: inherit;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background-color 0.2s;
+    }
+    
+    .notification-close:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .notification-details {
+        margin-top: 8px;
+        font-size: 0.85rem;
+        opacity: 0.9;
+        line-height: 1.3;
+    }
+    
+    .notification-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background-color: rgba(255, 255, 255, 0.3);
+        width: 100%;
+        transform-origin: left;
+        animation: notificationProgress 5s linear forwards;
+    }
+    
+    @keyframes notificationProgress {
+        from { transform: scaleX(1); }
+        to { transform: scaleX(0); }
+    }
+    
+    #techChatWidget {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 10000;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        display: none;
+    }
+
+    main.container {
+        background: linear-gradient(rgba(192, 255, 209, 0.498), rgba(202, 255, 233, 0.736)), url('{% static "images/nen.jpg" %}') center/cover no-repeat fixed;
+        height: 100vh;
+        width: 100vw;
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        position: fixed;
+        top: 0;
+        left: 0;
+        padding-top: 70px; /* Chiều cao navbar */
+    }
+
+    .notebook-layout {
+        display: flex;
+        height: calc(100vh - 70px); /* Toàn màn hình trừ navbar */
+        gap: 15px;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    /* === CỘT TRÁI: NGUỒN DỮ LIỆU === */
+    .source-panel {
+        width: 20%;
+        /* flex: 1; */
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background-color: #ffffff;
+        border-radius: 20px;
+        /* border-top: 4px solid #10a37f; */
+    }
+    .source-header {
+        /* padding: 5px 50px; */
+        font-size: 20px;
+        font-weight: 375; /* Inter font weight for better readability */
+        text-align: center;
+        color: #10a37f;
+        margin-bottom: 0px;
+        padding: 5px;
+        /* border-bottom: 1px solid #10a37f; */
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .collapse-btn {
+        position: absolute;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 5px;
+        transition: all 0.2s;
+    }
+    
+    .source-panel.collapsed {
+        width: 50px;
+        min-width: 50px;
+    }
+    
+    .source-panel.collapsed .source-header {
+        writing-mode: vertical-lr;
+        text-orientation: mixed;
+        font-size: 0; /* Hide the text */
+        height: 3%;
+        justify-content: center;
+        border-bottom: none;
+        /* margin-bottom: 0; */
+        padding: 0;
+    }
+    
+    .source-panel.collapsed .source-header::before {
+        content: "";
+        font-size: 0;
+    }
+    
+    .source-panel.collapsed .source-item,
+    .source-panel.collapsed .source-actions {
+        display: none;
+    }
+    
+    .source-panel.collapsed .collapse-btn {
+        position: static;
+        margin: 0 auto;
+        font-size: 18px;
+        transform: rotate(0deg);
+    }
+
+    .source-item {
+        padding: 10px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        flex: 1;
+        overflow-y: auto;
+        border: #10a37f solid 1px;
+        background: #ffffff;
+        margin-left: 10px;
+        margin-right: 10px;   
+    }
+    
+    .user-db-entry {
+        background: #f8f9fa;
+        padding: 12px;
+        margin-bottom: 0;
+        position: relative;
+        border-bottom: 1px solid #b6b8b9;
+        margin-bottom: 4px;
+    }
+    
+    .user-db-entry:last-child {
+        border-bottom: none;
+    }
+    
+    .user-db-entry:hover {
+        background: #e9ecef;
+        transform: translateY(-1px);
+    }
+    
+    .user-db-entry.selected {
+        background: #d2e3fc;
+        border-color: #10a37f;
+    }
+    
+    /* Chunking status styles */
+    .user-db-entry.chunked {
+        background: #f1fffa;
+        border-color: #4caf50;
+        border-left: 4px solid #10a37f;
+        border-bottom: 1px solid #10a37f;
+        border-right: 1px solid #10a37f;
+        border-top: 1px solid #10a37f;
+    }
+    
+    .user-db-entry.chunked:hover {
+        background: #d1eede;
+    }
+    
+    .user-db-entry.not-chunked {
+        background: #e4e4e4;
+        border-left: 4px solid #bdbdbd;
+        
+    }
+    
+    .user-db-entry.not-chunked:hover {
+        background: #c7c7c7;
+    }
+    
+    .user-db-entry.loading {
+        background: #f8f9fa;
+        border-color: #6c757d;
+        border-left: 4px solid #6c757d;
+    }
+    
+    .user-db-entry.loading:hover {
+        background: #e9ecef;
+    }
+    
+    .chunking-status {
+        margin-top: 6px;
+        margin-bottom: 2px;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 80px;
+        max-width: 100%;
+        justify-content: flex-start;
+        text-align: start;
+        width: fit-content;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        box-sizing: border-box;
+    }
+    .chunking-status {
+        /* If text is too long, show ellipsis */
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        max-width: 120px;
+    }
+    
+    .chunking-status.chunked {
+        background: None;
+        color: #10a37f;
+    }
+    
+    .chunking-status.not-chunked {
+        background: None;
+        color: #744313;
+        /* box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3); */
+    }
+    
+    .chunking-status.loading {
+        background: #ea9937;
+        color: white;
+        box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+    }
+    
+    .chunking-status i {
+        font-size: 0.8rem;
+    }
+    
+    .user-db-username {
+        font-weight: 400;
+        color: #10a37f;
+        margin-bottom: 5px;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .user-db-date {
+        font-size: 0.75rem;
+        color: #5f6368;
+        margin-bottom: 5px;
+    }
+    
+    .user-db-info {
+        font-size: 0.8rem;
+        color: #666;
+        margin-left: 0px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        display: block;
+    }
+    
+    .user-db-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 5px;
+        border-radius: 100%;
+        justify-content: flex-start;
+        padding: 0;
+        height: min-content;
+    }
+    
+    .btn-read-doc, .btn-delete-doc {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .btn-read-doc {
+        background: None;
+        color: rgb(30,123,94);
+    }
+    
+    .btn-read-doc:hover {
+        background: #0d8a6b;
+        color: white
+    }
+    
+    .btn-delete-doc {
+        color: #dc3545;
+        background: None;
+    }
+    
+    .btn-delete-doc:hover {
+        background: #c82333;
+        color: white;
+    }
+    
+    .source-actions {
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+        width: fit-content;
+        align-content: center;
+
+    }
+    
+    .btn-refresh {
+        background: white;
+        background: #10a37f;
+        color: white;
+        padding: 8px 8px;
+        border-radius: 50px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 350;
+        border: None;
+    }
+    
+    .btn-refresh:hover {
+        background: rgb(30,123,94);
+        color: white;
+        border: None;
+    }
+    
+    .loading-indicator {
+        text-align: center;
+        padding: 20px;
+        color: #5f6368;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 30px 15px;
+        color: #5f6368;
+    }
+    
+    .empty-state i {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        display: block;
+    }
+    
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+        background-color: rgba(255, 255, 255, 0.85); /* Fallback for unsupported browsers */
+        backdrop-filter: blur(50px);
+        margin: 15% auto;
+        padding: 20px;
+        border-radius: 15px;
+        width: 90%;
+        max-width: 500px;
+        border: 2px solid #10a37f;
+        transition: box-shadow 0.3s, transform 0.3s, background-color 0.3s;
+    }
+    
+    .modal-header {
+        display: flex;
+        /* justify-content: space-between; */
+        align-items: center;
+        margin-bottom: 20px;
+        background: #10a37f;
+        color: white;
+        font-weight: 375;
+        font-size: 1.5rem;
+        border-radius: 10px;
+    }
+    
+    .modal-close {
+        background: None;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: white;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .form-group input, .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #10a37f;
+        border-radius: 8px;
+        font-size: 1rem;
+        box-sizing: border-box;
+        font-weight: 375;
+    }
+
+    
+    
+    .form-group textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    .form-group textarea :focus {
+        border: 2px solid #10a37f;
+    }
+    
+    .btn-submit {
+        background: #10a37f;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        width: 100%;
+        transition: background-color 0.2s;
+    }
+    
+    .btn-submit:hover {
+        background: rgb(30,123,94);
+    }
+
+    /* === CỘT PHẢI: CUỘC TRÒ CHUYỆN === */
+    .chat-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background-color: #ffffff;
+        border-radius: 20px;
+        margin-right: 0;
+        /* border-top: 5px solid #10a37f; */
+        /* padding-bottom: 10px;
+        padding-left: 10px;
+        padding-right: 10px; */
+    }
+    .chat-panel-header {
+        font-size: 20px;
+        font-weight: 375; /* Inter font weight for better readability */
+        text-align: center;
+        color: #10a37f;
+        margin-bottom: 20px;
+        padding: 5px;
+        border-bottom: 1px solid #10a37f;
+    }
+    .chat-body {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 32px 24px;
+    }
+
+    /* === TIN NHẮN === */
+    .message {
+        display: flex;
+        flex-direction: column;
+        max-width: 85%;
+        width: fit-content;
+        margin-bottom: 20px;
+        word-wrap: break-word;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        font-family: 'Inter', sans-serif;
+        font-weight: 350;
+    }
+    
+    .message.user {
+        align-self: flex-end;
+        align-items: flex-end;
+        margin-left: auto;
+        margin-right: 0;
+    }
+
+    .message.bot {
+        align-self: flex-start;
+        align-items: flex-start;
+    }
+    
+    .message-content {
+        padding: 12px 18px;
+        border-radius: 18px;
+        max-width: 100%;
+        width: 100%;
+        font-family: 'Inter', sans-serif;
+        font-weight: 375;
+        letter-spacing: -0.01em; /* Slightly tighter letter spacing like ChatGPT */
+    }
+
+    .message.user .message-content {
+        background: #10a37f; /* Xanh dương nhạt cho người dùng */
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+
+    .message.bot .message-content {
+        background: #ffffff; /* Nền trắng cho bot */
+        color: #3c4043;
+        border-bottom: rgb(214, 214, 214);
+        border-bottom-left-radius: 4px;
+        border: 1px solid #10a37f;
+        margin-left: 0;
+        align-self: flex-start;
+    }
+    
+    .message-time {
+        font-size: 0.75rem;
+        color: #10a37f;
+        margin-top: 2px;
+        padding: 0 5px;
+        flex: 1; 
+        display: flex;
+        align-items: flex-start; /* Align above (top) */
+    }
+    
+    /* Container for message time and speaker button */
+    .message-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 6px;
+        padding: 0 5px;
+        min-height: 28px; /* Ensure consistent height */
+    }
+    
+    /* Responsive design for smaller screens */
+    @media (max-width: 768px) {
+        .speaker-btn {
+            width: 24px;
+            height: 24px;
+            font-size: 10px;
+        }
+        
+        .message-footer {
+            min-height: 24px;
+        }
+    }
+    
+    .typing-indicator {
+        display: none;
+        padding: 16px 24px;
+        color: #5f6368;
+        font-style: italic;
+        background: #ffffff;
+        border-radius: 18px;
+        margin: 10px 0;
+        max-width: 85%;
+        width: fit-content;
+        border-bottom-left-radius: 4px;
+        /* box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); */
+        align-self: flex-start;
+        font-weight: 375;
+    }
+    
+    .typing-text {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+        color: #8d8d8d;
+        background: white;
+        border: None;
+        font-weight: 375;
+        font-family: 'Inter', sans-serif;
+        letter-spacing: -0.01em;
+    }
+    
+    .thinking-dots {
+        display: inline-flex;
+        gap: 2px;
+    }
+    
+    .thinking-dots .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #949494;
+        animation: wave 1.4s infinite ease-in-out;
+        opacity: 0.4;
+    }
+    
+    .thinking-dots .dot:nth-child(1) {
+        animation-delay: 0s;
+    }
+    
+    .thinking-dots .dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .thinking-dots .dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes wave {
+        0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+        30% {
+            transform: translateY(-10px);
+            opacity: 1;
+        }
+    }
+    
+    .typing-indicator.show {
+        display: block;
+        animation: slideInUp 0.3s ease-out;
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* === KHUNG NHẬP LIỆU === */
+    .chat-input-container {
+        padding: 10px;
+        width: 99%;
+        margin: 0 auto 6px auto;
+        background: #ffffff;
+        border-radius: 20px;
+        border: 2px solid #10a37f;
+    }
+
+    .input-wrapper {
+        display: flex;
+        align-items: center;
+        background: #ffffff;
+        /* border: 2px solid #e0e0e0; */
+        border-radius: 28px;
+        padding: 2px 10px 2px 20px;
+        transition: box-shadow 0.2s;
+        font-size: 20px;
+    }
+    /* .input-wrapper:focus-within { */
+        /* border-color: #10a37f; */
+        /* box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.15); */
+    /* } */
+    
+    .chat-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 1rem;
+        padding: 8px 0;
+        font-family: 'Inter', sans-serif;
+        font-weight: 350;
+        letter-spacing: -0.01em;
+    }
+    
+    .send-btn {
+        background: #10a37f; /* Xanh Google */
+        color: white;
+        border: none;
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        margin-left: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+    }
+    
+    .send-btn:hover {
+        background: rgb(30,123,94);
+    }
+    
+    .disclaimer {
+        text-align: center;
+        font-size: 0.75rem;
+        color: #5f6368;
+        padding-top: 12px;
+    }
+    
+    /* Speaker button for text-to-speech */
+    .speaker-btn {
+        background: rgba(255, 255, 255);
+        border: none;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+        color: #10a37f;
+        font-size: 12px;
+        margin-left: 8px;
+        flex-shrink: 0; /* Don't shrink when space is limited */
+    }
+    
+    .speaker-btn:hover {
+        opacity: 1;
+        background: rgba(16, 163, 127, 0.2);
+        transform: scale(1.1);
+    }
+    
+    .speaker-btn.playing {
+        background: #10a37f;
+        color: white;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .speaker-btn.loading {
+        opacity: 0.5;
+        /* cursor: not-allowed; */
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    /* === MARKDOWN STYLING === */
+    .message-content h1,
+    .message-content h2,
+    .message-content h3,
+    .message-content h4,
+    .message-content h5,
+    .message-content h6 {
+        margin: 16px 0 8px 0;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+    
+    .message-content h2 {
+        font-size: 1.5em;
+        border-bottom: 1px solid #e1e5e9;
+        padding-bottom: 8px;
+    }
+    
+    .message-content h3 {
+        font-size: 1.25em;
+    }
+    
+    .message-content p {
+        margin: 8px 0;
+        line-height: 1.6;
+    }
+    
+    .message-content ul,
+    .message-content ol {
+        margin: 8px 0;
+        padding-left: 24px;
+    }
+    
+    .message-content li {
+        margin: 4px 0;
+        line-height: 1.5;
+    }
+    
+    .message-content code {
+        background: #f6f8fa;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.9em;
+        color: #d73a49;
+    }
+    
+    .message-content pre {
+        background: #f6f8fa;
+        padding: 12px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 12px 0;
+        border-left: 4px solid #10a37f;
+    }
+    
+    .message-content pre code {
+        background: none;
+        padding: 0;
+        color: #24292e;
+    }
+    
+    .message-content blockquote {
+        margin: 12px 0;
+        padding: 0 16px;
+        border-left: 4px solid #dfe2e5;
+        color: #6a737d;
+        background: #f8f9fa;
+        border-radius: 0 6px 6px 0;
+    }
+    
+    .message-content table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 12px 0;
+    }
+    
+    .message-content th,
+    .message-content td {
+        border: 1px solid #dfe2e5;
+        padding: 8px 12px;
+        text-align: left;
+    }
+    
+    .message-content th {
+        background: #f6f8fa;
+        font-weight: 600;
+    }
+    
+    .message-content hr {
+        border: none;
+        height: 2px;
+        background: #e1e5e9;
+        margin: 20px 0;
+    }
+    
+    .message-content strong {
+        font-weight: 600;
+        color: #24292e;
+    }
+    
+    .message-content em {
+        font-style: italic;
+    }
+    
+    .message-content a {
+        color: #0366d6;
+        text-decoration: none;
+    }
+    
+    .message-content a:hover {
+        text-decoration: underline;
+    }
+
+
+.upload-date {
+    border: none;
+    background: none;
+    color: #10a37f;
+    font-size: 0.75rem;
+    transition: none;
+    margin-left: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+    .upload-date:hover{
+        background: #10a37f;
+        color: white;
+        border-radius: 10px;
+    }
+    .upload-date:hover .fa-calendar {
+        color: white !important;
+    }
+    
+    .upload-date-text {
+        margin-left: 0;
+        display: inline;
+        vertical-align: middle;
+    }
+
+    .studio-panel {
+        width: 20%;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background-color: #ffffff;
+        border-radius: 20px;
+    }
+    .studio-header {
+        font-size: 20px;
+        font-weight: 375;
+        text-align: center;
+        color: #10a37f;
+        margin-bottom: 0px;
+        padding: 5px;
+        border-bottom: 1px solid #10a37f;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 35px; /* Match source-header height exactly */
+        box-sizing: border-box;
+    }
+    .studio-collapse-btn {
+        position: absolute;
+        left: 10px;
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 5px;
+        transition: all 0.2s;
+        color: #10a37f;
+    }
+    .studio-panel.collapsed {
+        width: 50px;
+        min-width: 50px;
+    }
+    .studio-panel.collapsed .studio-header {
+        writing-mode: vertical-lr;
+        text-orientation: mixed;
+        font-size: 0;
+        height: 3%;
+        justify-content: center;
+        border-bottom: none;
+        padding: 0;
+    }
+    .studio-panel.collapsed .studio-header::before {
+        content: "";
+        font-size: 0;
+    }
+    .studio-panel.collapsed .studio-body {
+        display: none;
+    }
+    .studio-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+        gap: 10px;
+    }
+    .studio-note-textarea {
+        width: 100%;
+        height: 180px;
+        border-radius: 12px;
+        padding: 12px;
+        font-size: 1rem;
+        font-weight: 375;
+        font-family: 'Inter', sans-serif;
+        resize: vertical;
+        margin-bottom: 10px;
+        background: #f2f3f2;
+        border: 2px solid #10a37f;
+        color: #333;
+        /* box-sizing: border-box; */
+        transition: border-color 0.2s;
+    }
+    .studio-note-textarea:focus {
+        border-color: rgb(30,123,94);
+        outline: none;
+    }
+    .studio-note-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        height: min-content;
+    }
+    .studio-save-btn {
+        background: #10a37f;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.2s;
+    }
+    .studio-save-btn:hover {
+        background: rgb(30,123,94);
+    }
+    /* ...existing code... */
+
+    /* Pin button for saving messages */
+    .pin-btn {
+        background: rgba(255, 255, 255);
+        border: none;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+        color: #10a37f;
+        font-size: 12px;
+        margin-left: 8px;
+        flex-shrink: 0;
+    }
+    
+    .pin-btn:hover {
+        opacity: 1;
+        background: rgba(16, 163, 127, 0.2);
+        transform: scale(1.1);
+    }
+    
+    .pin-btn.pinned {
+        background: #ffc107;
+        color: white;
+        opacity: 1;
+    }
+    
+    .pin-btn.pinned:hover {
+        background: #e0a800;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    /* Studio Panel Tab System */
+    .studio-tabs {
+        display: flex;
+        border-radius: 2px;
+        margin-bottom: 2px;
+        overflow: hidden;
+    }
+    
+    .studio-tab {
+        flex: 1;
+        border: none;
+        padding: 1px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 375;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        position: relative;
+        background: #10a37f;
+        color: white;
+        border-radius: 20px;
+    }
+    
+    .studio-tab-content {
+        display: none;
+        height: 100%;
+        flex-direction: column;
+        border-radius: 10px;
+        border: #10a37f solid 1px;
+    }
+    
+    .studio-saved-counter {
+        background: #ffc107;
+        color: #333;
+        border-radius: 10px;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        margin-left: 4px;
+    }
+    
+    /* Saved Messages in Studio */
+    .studio-saved-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0;
+        margin-bottom: 12px;
+    }
+    
+    .studio-empty-state {
+        text-align: center;
+        color: #666;
+        padding: 30px 15px;
+    }
+    
+    .studio-empty-state i {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        opacity: 0.3;
+        display: block;
+    }
+    
+    .studio-saved-item {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .studio-saved-item:hover {
+        background: #e9ecef;
+        border-color: #10a37f;
+    }
+    
+    .studio-saved-content {
+        font-size: 0.85rem;
+        line-height: 1.4;
+        margin-bottom: 8px;
+        max-height: 100px;
+        overflow-y: auto;
+        word-wrap: break-word;
+    }
+    
+    .studio-saved-time {
+        font-size: 0.7rem;
+        color: #666;
+        margin-bottom: 6px;
+    }
+    
+    .studio-saved-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+    
+    .studio-saved-actions button {
+        background: none;
+        border: none;
+        padding: 4px 6px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.7rem;
+        transition: all 0.2s;
+    }
+    
+    .studio-saved-actions .btn-copy {
+        color: #10a37f;
+    }
+    
+    .studio-saved-actions .btn-copy:hover {
+        background: #10a37f;
+        color: white;
+    }
+    
+    .studio-saved-actions .btn-delete {
+        color: #dc3545;
+    }
+    
+    .studio-saved-actions .btn-delete:hover {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .studio-clear-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: background-color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0 auto;
+    }
+    
+    .studio-clear-btn:hover {
+        background: #c82333;
+    }
+    
+    .studio-clear-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+
+    .btn-pin-note {
+    background: #6c757d; /* Màu xám */
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s;
+    margin-right: 10px; /* Tạo khoảng cách với nút Lưu */
+    }
+
+    .btn-pin-note:hover {
+        background: #5a6268;
+    }
+
+    /* Style cho nút Ghim khi được kích hoạt (active) */
+    .btn-pin-note.active {
+        background: #ffc107; /* Màu vàng */
+        color: #212529;
+    }
+
+    /* Style cho ghi chú được ghim trong danh sách */
+    .studio-note-item.pinned {
+        background-color: #fffbe6; /* Nền màu vàng nhạt */
+        border-left: 4px solid #ffc107;
+    }
+
+    .studio-note-item.pinned .studio-note-pin-icon {
+        display: inline-block; /* Hiện icon ghim */
+        color: #ffc107;
+        margin-right: 8px;
+    }
+
+    /* CSS cho tab Ghi chú trong Studio */
+    #notesTab {
+        position: relative; /* Cần thiết để định vị nút + */
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* CSS cho danh sách các ghi chú */
+    .studio-notes-list {
+        flex-grow: 1; /* Cho phép danh sách lấp đầy không gian còn lại */
+        overflow-y: auto; /* Thêm thanh cuộn khi danh sách dài */
+        padding: 10px;
+    }
+
+    /* CSS cho từng mục ghi chú trong danh sách */
+    .studio-note-item {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-left: 4px solid #10a37f; /* Màu mặc định */
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 375;
+    }
+
+    .studio-note-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        background-color: #e2fff2;
+    }
+
+    .studio-note-title {
+        font-weight: 500;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+    }
+
+    .studio-note-content {
+        font-size: 0.9rem;
+        color: #495057;
+        white-space: pre-wrap; /* Hiển thị xuống dòng */
+        word-break: break-word;
+    }
+
+    .studio-note-time {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 8px;
+    }
+
+    .studio-note-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .studio-note-actions button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #6c757d;
+        font-size: 0.8rem;
+    }
+    .studio-note-actions button:hover {
+        color: #10a37f;
+    }
+
+
+    /* CSS cho nút Thêm mới (+) */
+    .studio-add-btn {
+        position: absolute; /* Định vị tuyệt đối so với #notesTab */
+        bottom: 20px;
+        right: 20px;
+        background-color: #10a37f;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(16, 163, 127, 0.4);
+        transition: all 0.2s ease;
+        z-index: 10;
+    }
+
+    .studio-add-btn:hover {
+        transform: scale(1.1);
+        background-color: #0d8a6b;
+    }
+
+    /* Style cho nút ghim file */
+    .btn-pin-file {
+        background: none;
+        border: none;
+        color: #adb5bd; /* Màu xám nhạt mặc định */
+        cursor: pointer;
+        font-size: 0.9rem;
+        padding: 5px;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        transition: all 0.2s;
+        position: absolute; /* Định vị nút ghim */
+        top: 8px;
+        right: 8px;
+    }
+
+    .btn-pin-file:hover {
+        background-color: #e9ecef;
+        color: #343a40;
+    }
+
+    /* Style cho nút ghim khi được kích hoạt */
+    .btn-pin-file.active {
+        color: #ffc107; /* Màu vàng khi được ghim */
+    }
+
+    /* Style cho ghi chú được ghim trong danh sách */
+    .studio-note-item.pinned {
+        background-color: #fffbe6; /* Nền màu vàng nhạt */
+        border-left: 4px solid #ffc107;
+    }
+
+    /* Style cho icon ghim bên trong tiêu đề */
+    .studio-note-item.pinned .studio-note-pin-icon {
+        display: inline-block; /* Chỉ hiện icon khi note được ghim */
+        color: #ffc107;
+        margin-right: 8px;
+        font-size: 0.8em; /* Kích thước icon nhỏ hơn một chút */
+    }
+</style>
+
+<div class="notebook-layout">
+    <!-- Thanh thông báo -->
+    <div id="notificationBar" class="notification-bar">
+        <div class="notification-content">
+            <div class="notification-icon">
+                <i class="fas fa-info-circle"></i>
+            </div>
+            <div class="notification-message">
+                <div class="notification-text"></div>
+                <div class="notification-details"></div>
+            </div>
+        </div>
+        <button class="notification-close" onclick="hideNotification()">&times;</button>
+        <div class="notification-progress"></div>
+    </div>
+
+    <div class="source-panel">
+        <h2 class="source-header">
+            Tài liệu nguồn
+            <button class="collapse-btn" style="color: #10a37f;" onclick="toggleSourcePanel()">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </h2>
+        <div class="source-item" id="userDatabaseList">
+            <div class="loading-indicator" id="loadingIndicator">
+                <i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...
+            </div>
+        </div>    
+        <div class="source-actions">
+            <button class="btn-refresh" onclick="loadUserDatabase()">
+                <i class="fas fa-refresh"></i> Làm mới
+            </button>
+        </div>
+    </div>
+
+    <div class="chat-panel" data-username="{{ user.username }}">
+        <h2 class = 'chat-panel-header'>
+            Cuộc trò chuyện
+        </h2>
+        <div class="chat-body" id="chatBody">
+            <div class="message bot">
+                <div class="message-content">
+                    Xin chào <strong>{{ user.first_name }}</strong>, Tôi có thể giúp gì cho bạn? 
+                    
+                </div>
+                <div class="message-time">Vừa xong</div>
+            </div>
+        </div>
+        <!-- Hidden data for JavaScript -->
+        <script type="application/json" id="user-data">
+            {
+                "username": "{{ user.username }}",
+                "first_name": "{{ user.first_name }}",
+                "is_authenticated": {% if user.is_authenticated %}true{% else %}false{% endif %}
+            }
+        </script>
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-text">
+                Đang suy nghĩ và trả lời
+                <div class="thinking-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-container">
+            <div class="input-wrapper">
+                <input 
+                    type="text" 
+                    class="chat-input" 
+                    id="messageInput" 
+                    placeholder="Hỏi bất cứ điều gì..."
+                    onkeypress="handleKeyPress(event)"
+                >
+                <button class="send-btn" onclick="sendMessage()">
+                    <i class="fas fa-arrow-up"></i>
+                </button>
+            </div>
+            <div class="disclaimer">
+                <small>
+                    <i class="fas fa-info-circle me-1"></i>
+                    WoxionChat có thể mắc lỗi, hãy kiểm tra những nội dung quan trọng
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Studio Panel for user notes (phía phải chat-panel) -->
+    <div class="studio-panel" id="studioPanel">
+        <div class="studio-header">
+            Studio
+            <button class="studio-collapse-btn" onclick="toggleStudioPanel()">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="studio-body">
+            <div class="studio-tabs">
+                <button class="studio-tab" data-tab="notes" onclick="switchStudioTab('notes')">
+                    <i class="fas fa-sticky-note"></i>
+                    Ghi chú
+                </button>
+            </div>
+            
+            <!-- Notes Tab -->
+            <div class="studio-tab-content active" id="notesTab" style="position:relative;">
+                <button class="studio-add-btn" id="studioAddBtn" title="Thêm ghi chú mới" onclick="showAddNoteForm()">
+                    <i class="fas fa-plus"></i>
+                </button>
+                
+                <div class="studio-notes-list" id="studioNotesList">
+                    </div>
+
+                <div class="studio-empty-state" id="studioNotesEmpty" style="display: none;">
+                    <i class="fas fa-sticky-note"></i>
+                    <p>Chưa có ghi chú nào</p>
+                    <small>Nhấn dấu <b>+</b> để thêm ghi chú mới</small>
+                </div>
+                <!-- Add/Edit Note Modal -->
+                <div class="modal" id="studioNoteModal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <span id="studioNoteModalTitle">Thêm ghi chú</span>
+                            <button class="modal-close" onclick="closeNoteModal()">&times;</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="noteTitle">Tiêu đề</label>
+                            <input type="text" id="noteTitle" maxlength="100" placeholder="Tiêu đề ghi chú (tùy chọn)">
+                        </div>
+                        <div class="form-group">
+                            <label for="noteContent">Nội dung</label>
+                            <textarea id="noteContent" rows="5" maxlength="2000" placeholder="Nhập nội dung ghi chú..."></textarea>
+                        </div>
+                        <div class="studio-note-footer">
+                            <button class="btn-pin-note" id="pinNoteBtn" onclick="togglePinState()">
+                                <i class="fas fa-thumbtack"></i> Ghim
+                            </button>
+                            <button class="studio-save-btn" id="saveNoteBtn" onclick="saveNote()">Lưu</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Saved Messages Tab -->
+            <div class="studio-tab-content" id="savedTab">
+                <div class="studio-saved-messages" id="studioSavedMessages">
+                    <div class="studio-empty-state">
+                        <i class="fas fa-thumbtack"></i>
+                        <p>Chưa có tin nhắn nào được ghim</p>
+                        <small>Nhấp vào biểu tượng ghim 📌 ở tin nhắn bot để lưu lại</small>
+                    </div>
+                </div>
+                <div class="studio-saved-actions">
+                    <button class="studio-clear-btn" onclick="clearAllSavedMessages()" disabled>
+                        <i class="fas fa-trash"></i>
+                        Xóa tất cả
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========== Studio Notes CRUD ========== //
+let notes = [];
+let editingNoteId = null;
+
+function getCSRFToken() {
+    // Lấy CSRF token từ cookie
+    return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+}
+
+async function fetchNotes() {
+    try {
+        const user = getCurrentUsername(); 
+        if (!user) {
+            console.warn('Chưa xác định người dùng, không thể tải ghi chú.');
+            return;
+        }
+
+        const res = await fetch(`/takenote/notes/?user=${encodeURIComponent(user)}`, {
+            headers: { 'X-CSRFToken': getCSRFToken() }
+        });
+
+        if (!res.ok) throw new Error('Không thể tải ghi chú từ máy chủ');
+        
+        const data = await res.json();
+        notes = data || []; 
+        renderNotes(); // Gọi hàm render sau khi có dữ liệu
+    } catch (e) {
+        showErrorNotification('Lỗi tải ghi chú', e.message);
+        console.error("Lỗi fetchNotes:", e);
+    }
+}
+
+let currentNoteIsPinned = false;
+
+function renderNotes() {
+    const list = document.getElementById('studioNotesList');
+    const emptyState = document.getElementById('studioNotesEmpty');
+    list.innerHTML = ''; 
+
+    if (!notes || notes.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+
+    notes.forEach(note => {
+        const noteId = note.id || note._id || note.pk;
+        const item = document.createElement('div');
+        
+        // ---- PHẦN QUAN TRỌNG BẮT ĐẦU ----
+
+        // 1. Thêm class 'pinned' vào thẻ div chính nếu note.is_pinned là true
+        item.className = `studio-note-item ${note.is_pinned ? 'pinned' : ''}`;
+        item.setAttribute('onclick', `editNote('${noteId}')`);
+
+        item.innerHTML = `
+            <div class="studio-note-title">
+                
+                ${note.is_pinned ? '<span class="studio-note-pin-icon"><i class="fas fa-thumbtack"></i></span>' : ''}
+                
+                ${escapeHtml(note.title) || '(Không tiêu đề)'}
+            </div>
+            <div class="studio-note-content">${escapeHtml(note.content)}</div>
+            <div class="studio-note-time">${formatNoteTime(note.created_at)}</div>
+            <div class="studio-note-actions">
+                <button onclick="event.stopPropagation(); editNote('${noteId}')"><i class='fas fa-edit'></i> Sửa</button>
+                <button onclick="event.stopPropagation(); deleteNote('${noteId}')"><i class='fas fa-trash'></i> Xóa</button>
+            </div>
+        `;
+
+        // ---- PHẦN QUAN TRỌNG KẾT THÚC ----
+
+        list.appendChild(item);
+    });
+}
+
+function togglePinState() {
+    const pinBtn = document.getElementById('pinNoteBtn');
+    currentNoteIsPinned = !currentNoteIsPinned; // Đảo ngược trạng thái
+    if (currentNoteIsPinned) {
+        pinBtn.classList.add('active');
+    } else {
+        pinBtn.classList.remove('active');
+    }
+}
+
+function showAddNoteForm() {
+    editingNoteId = null;
+    currentNoteIsPinned = false; // Reset trạng thái ghim cho note mới
+    document.getElementById('studioNoteModalTitle').innerText = 'Thêm ghi chú';
+    document.getElementById('noteTitle').value = '';
+    document.getElementById('noteContent').value = '';
+    document.getElementById('pinNoteBtn').classList.remove('active'); // Bỏ active nút ghim
+    document.getElementById('studioNoteModal').style.display = 'block';
+}
+
+function closeNoteModal() {
+    document.getElementById('studioNoteModal').style.display = 'none';
+}
+
+function editNote(id) {
+    const note = notes.find(n => (n.id || n._id || n.pk) == id);
+    if (!note) return;
+    editingNoteId = id;
+    currentNoteIsPinned = note.is_pinned; // Set trạng thái ghim từ dữ liệu note
+    document.getElementById('studioNoteModalTitle').innerText = 'Sửa ghi chú';
+    document.getElementById('noteTitle').value = note.title || '';
+    document.getElementById('noteContent').value = note.content || '';
+    
+    // Cập nhật trạng thái active cho nút ghim
+    const pinBtn = document.getElementById('pinNoteBtn');
+    if (currentNoteIsPinned) {
+        pinBtn.classList.add('active');
+    } else {
+        pinBtn.classList.remove('active');
+    }
+    
+    document.getElementById('studioNoteModal').style.display = 'block';
+}
+
+async function saveNote() {
+    const title = document.getElementById('noteTitle').value.trim();
+    const content = document.getElementById('noteContent').value.trim();
+    if (!title || !title.trim()) {
+        showWarningNotification('Tiêu đề ghi chú không được để trống!');
+        return;
+    }
+
+    try {
+        const user = getCurrentUsername();
+        if (!user) {
+            showErrorNotification('Lỗi nghiêm trọng', 'Không thể xác định người dùng.');
+            return;
+        }
+
+        let res;
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        };
+        
+        // Tạo body request, gửi kèm trạng thái "is_pinned"
+        const body = JSON.stringify({ 
+            user: user, // user chỉ cần cho lúc tạo mới, nhưng gửi cũng không sao
+            title: title, 
+            content: content,
+            is_pinned: currentNoteIsPinned // <-- Gửi trạng thái ghim
+        });
+
+        if (editingNoteId) {
+            res = await fetch(`/takenote/notes/${editingNoteId}/edit/`, {
+                method: 'PUT',
+                headers,
+                body: body
+            });
+        } else {
+            const addBody = JSON.stringify({
+                user: user,
+                title: title,
+                content: content,
+                is_pinned: currentNoteIsPinned
+            });
+            res = await fetch('/takenote/notes/add/', {
+                method: 'POST',
+                headers,
+                body: body
+            });
+        }
+
+        if (!res.ok) {
+             const errorData = await res.json();
+             throw new Error(errorData.error || 'Lưu ghi chú thất bại');
+        }
+        
+        closeNoteModal();
+        await fetchNotes(); // Tải lại danh sách, các note ghim sẽ lên đầu
+        showSuccessNotification(editingNoteId ? 'Đã cập nhật ghi chú!' : 'Đã lưu ghi chú!');
+        
+    } catch (e) {
+        showErrorNotification('Lỗi khi lưu ghi chú', e.message);
+        console.error("Lỗi saveNote:", e);
+    }
+}
+
+async function deleteNote(id) {
+    if (!confirm('Bạn có chắc muốn xóa ghi chú này?')) return;
+    try {
+        // SỬA: URL cho việc xóa (DELETE) đã được cập nhật
+        const res = await fetch(`/takenote/notes/${id}/delete/`, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': getCSRFToken() }
+        });
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'Xóa ghi chú thất bại');
+        }
+        await fetchNotes(); // Tải lại danh sách ghi chú
+        showSuccessNotification('Đã xóa ghi chú!');
+    } catch (e) {
+        showErrorNotification('Lỗi xóa ghi chú', e.message);
+        console.error("Lỗi deleteNote:", e);
+    }
+}
+
+function formatNoteTime(dt) {
+    if (!dt) return '';
+    const d = new Date(dt);
+    if (isNaN(d)) return dt;
+    return d.toLocaleString('vi-VN', { hour12: false });
+}
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m];
+    });
+}
+// Đóng modal khi click ngoài
+window.onclick = function(event) {
+    const modal = document.getElementById('studioNoteModal');
+    if (event.target == modal) modal.style.display = 'none';
+}
+
+// Studio Panel collapse logic giữ nguyên
+function toggleStudioPanel() {
+    const panel = document.getElementById('studioPanel');
+    const btnIcon = panel.querySelector('.studio-collapse-btn i');
+    if (panel.classList.contains('collapsed')) {
+        panel.classList.remove('collapsed');
+        btnIcon.classList.remove('fa-chevron-left');
+        btnIcon.classList.add('fa-chevron-right');
+    } else {
+        panel.classList.add('collapsed');
+        btnIcon.classList.remove('fa-chevron-right');
+        btnIcon.classList.add('fa-chevron-left');
+    }
+}
+
+// Tải ghi chú khi trang tải xong
+document.addEventListener('DOMContentLoaded', fetchNotes);
+let userDatabaseCache = [];
+let notificationTimeout = null;
+let ongoingChatRequest = null; // Track ongoing chat requests
+let heartbeatInterval = null;  // Keep connection alive
+
+// === NOTIFICATION BAR FUNCTIONS ===
+
+function toggleSourcePanel() {
+    const sourcePanel = document.querySelector('.source-panel');
+    const collapseBtn = document.querySelector('.collapse-btn i');
+    
+    if (sourcePanel.classList.contains('collapsed')) {
+        // Expand the panel
+        sourcePanel.classList.remove('collapsed');
+        collapseBtn.classList.remove('fa-chevron-right');
+        collapseBtn.classList.add('fa-chevron-left');
+        
+        // Show notification
+        // showInfoNotification('📖 Đã mở rộng panel tài liệu', 'Panel tài liệu đã được mở rộng');
+    } else {
+        // Collapse the panel
+        sourcePanel.classList.add('collapsed');
+        collapseBtn.classList.remove('fa-chevron-left');
+        collapseBtn.classList.add('fa-chevron-right');
+        
+        // Show notification
+        //showInfoNotification('📖 Đã thu gọn panel tài liệu', 'Panel tài liệu đã được thu gọn để tiết kiệm không gian');
+    }
+}
+
+function showNotification(message, type = 'info', details = '', duration = 5000) {
+    const notificationBar = document.getElementById('notificationBar');
+    if (!notificationBar) {
+        console.error('[Notification] notificationBar element not found!');
+        return;
+    }
+    const notificationText = notificationBar.querySelector('.notification-text');
+    const notificationDetails = notificationBar.querySelector('.notification-details');
+    const notificationIcon = notificationBar.querySelector('.notification-icon i');
+    const notificationProgress = notificationBar.querySelector('.notification-progress');
+    console.log('[Notification] showNotification called', { message, type, details, duration });
+    if (!notificationText) console.warn('[Notification] .notification-text not found!');
+    if (!notificationDetails) console.warn('[Notification] .notification-details not found!');
+    if (!notificationIcon) console.warn('[Notification] .notification-icon i not found!');
+    if (!notificationProgress) console.warn('[Notification] .notification-progress not found!');
+    // Clear previous timeout
+    if (notificationTimeout) {
+        clearTimeout(notificationTimeout);
+    }
+    // Remove existing classes
+    notificationBar.classList.remove('success', 'error', 'warning', 'info');
+    // Set content
+    if (notificationText) notificationText.innerHTML = message;
+    if (notificationDetails) notificationDetails.innerHTML = details;
+    // Set icon and type
+    let iconClass = 'fas fa-info-circle';
+    switch (type) {
+        case 'success':
+            iconClass = 'fas fa-check-circle';
+            break;
+        case 'error':
+            iconClass = 'fas fa-exclamation-triangle';
+            break;
+        case 'warning':
+            iconClass = 'fas fa-exclamation-circle';
+            break;
+        case 'info':
+        default:
+            iconClass = 'fas fa-info-circle';
+            break;
+    }
+    if (notificationIcon) notificationIcon.className = iconClass;
+    notificationBar.classList.add(type);
+    // Reset progress animation
+    if (notificationProgress) {
+        notificationProgress.style.animation = 'none';
+        notificationProgress.offsetHeight; // Force reflow
+        notificationProgress.style.animation = `notificationProgress ${duration}ms linear forwards`;
+    }
+    // Show notification
+    notificationBar.classList.add('show');
+    console.log('[Notification] Notification shown:', { type, message });
+    // Auto hide after duration
+    notificationTimeout = setTimeout(() => {
+        hideNotification();
+    }, duration);
+}
+
+function hideNotification() {
+    const notificationBar = document.getElementById('notificationBar');
+    if (notificationBar) {
+        notificationBar.classList.remove('show');
+        console.log('[Notification] Notification hidden');
+    } else {
+        console.warn('[Notification] Tried to hide notification but notificationBar not found!');
+    }
+    if (notificationTimeout) {
+        clearTimeout(notificationTimeout);
+        notificationTimeout = null;
+    }
+}
+
+function showSuccessNotification(message, details = '') {
+    showNotification(message, 'success', details);
+}
+
+function showErrorNotification(message, details = '') {
+    showNotification(message, 'error', details);
+}
+
+function showWarningNotification(message, details = '') {
+    showNotification(message, 'warning', details);
+}
+
+function showInfoNotification(message, details = '') {
+    showNotification(message, 'info', details);
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Page loaded, starting initialization...');
+    
+    // Debug current username
+    const currentUsername = getCurrentUsername();
+    console.log('👤 Current username detected:', currentUsername);
+    
+    // Debug all elements
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const userDatabaseList = document.getElementById('userDatabaseList');
+    const chatPanel = document.querySelector('.chat-panel');
+    
+    console.log('🔍 DOM elements check:');
+    console.log('  - loadingIndicator:', loadingIndicator);
+    console.log('  - userDatabaseList:', userDatabaseList);
+    console.log('  - chatPanel:', chatPanel);
+    
+    // Initialize saved messages
+    updateStudioSavedCounter();
+    
+    // Update pin button states for existing messages
+    const savedMessages = getSavedMessages();
+    savedMessages.forEach(msg => {
+        const messageDiv = document.getElementById(msg.id);
+        if (messageDiv) {
+            const pinBtn = messageDiv.querySelector('.pin-btn');
+            if (pinBtn) {
+                pinBtn.classList.add('pinned');
+                pinBtn.title = 'Bỏ ghim tin nhắn';
+            }
+        }
+    });
+    
+    console.log('📌 Studio saved messages initialized:', savedMessages.length, 'messages');
+    
+    // Add welcome message explaining WoxionChat integration
+    setTimeout(() => {
+    }, 500);
+    
+    // Start heartbeat to maintain connection from page load
+    startHeartbeat();
+    console.log('💓 Heartbeat started to maintain unlimited connection');
+    
+    // Check server timeout settings
+    checkServerTimeoutSettings();
+    
+    // Notify user about unlimited timeout feature
+    setTimeout(() => {
+        showSuccessNotification(
+            '🚀 <strong>Chế độ không giới hạn thời gian đã kích hoạt!</strong>',
+            '💡 Chat của bạn sẽ không bị timeout, có thể chờ phản hồi AI bao lâu cũng được. Heartbeat đang duy trì kết nối.'
+        );
+    }, 2000);
+    
+    // Notify about TTS feature
+    setTimeout(() => {
+        showInfoNotification(
+            '🔊 <strong>Text-to-Speech với FPT.AI đã sẵn sàng!</strong>',
+            '💬 Nhấp vào biểu tượng loa 🔊 ở góc phải mỗi tin nhắn để nghe giọng đọc chất lượng cao bằng tiếng Việt!'
+        );
+    }, 4000);
+    
+    // Notify about Markdown support
+    setTimeout(() => {
+        showInfoNotification(
+            '📝 <strong>Hỗ trợ định dạng Markdown!</strong>',
+            '✨ WoxionChat giờ đây sẽ trả lời với định dạng Markdown đẹp mắt, bao gồm tiêu đề, danh sách, bảng, code blocks và nhiều hơn nữa!'
+        );
+    }, 6000);
+    
+    // Notify about Pin Messages feature
+    setTimeout(() => {
+        showInfoNotification(
+            '📌 <strong>Chức năng ghim tin nhắn trong Studio!</strong>',
+            '💾 Nhấp vào biểu tượng ghim 📌 ở tin nhắn bot để lưu vào Studio. Phím tắt: <kbd>Ctrl+Shift+S</kbd> để mở tab "Đã ghim"!'
+        );
+    }, 8000);
+    
+    // Load user database
+    loadUserDatabase();
+});
+
+// User Database Functions
+async function loadUserDatabase() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const userDatabaseList = document.getElementById('userDatabaseList');
+    
+    console.log('🔍 Loading user database...');
+    loadingIndicator.style.display = 'block';
+    
+    try {
+        // Get current user's username first
+        const currentUsername = getCurrentUsername();
+        console.log('👤 Current username:', currentUsername);
+        
+        // Load all user database entries
+        console.log('🌐 Making API request to /api/user-database/');
+        const response = await fetch('/api/user-database/');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        console.log('📊 API Response:', result);
+        
+        if (result.success) {
+            userDatabaseCache = result.data;
+            console.log('💾 Cached data:', userDatabaseCache);
+            console.log('📊 Total entries received:', userDatabaseCache.length);
+            
+            // Filter entries by current user's username
+            const userSpecificData = filterByCurrentUser(result.data, currentUsername);
+            console.log('🔍 User-specific data for', currentUsername, ':', userSpecificData);
+            
+            displayUserDatabase(userSpecificData);
+            
+            // Auto-select user's data if available
+            autoSelectUserData(currentUsername);
+        } else {
+            console.error('❌ API Error:', result);
+            showError('Không thể tải dữ liệu người dùng: ' + (result.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('❌ Error loading user database:', error);
+        showError('Lỗi kết nối đến server: ' + error.message);
+    } finally {
+        loadingIndicator.style.display = 'none';
+    }
+}
+
+function getCurrentUsername() {
+    // Try to get username from Django template context first
+    try {
+        const userDataScript = document.getElementById('user-data');
+        if (userDataScript) {
+            const userData = JSON.parse(userDataScript.textContent);
+            console.log('🔍 Found user data from script:', userData);
+            if (userData.username) {
+                return userData.username;
+            }
+        }
+    } catch (e) {
+        console.error('⚠️ Error parsing user data script:', e);
+    }
+    
+    // Try to get username from Django template context or from page data
+    const usernameElement = document.querySelector('[data-username]');
+    if (usernameElement) {
+        const username = usernameElement.getAttribute('data-username');
+        console.log('🔍 Found username from data attribute:', username);
+        return username;
+    }
+    
+    // Fallback: try to extract from welcome message or other sources
+    const welcomeMessage = document.querySelector('.message-content strong');
+    if (welcomeMessage) {
+        const username = welcomeMessage.textContent || 'unknown_user';
+        console.log('🔍 Found username from welcome message:', username);
+        return username;
+    }
+    
+    // For testing, return a default username
+    console.log('⚠️ No username found, using default: testuser');
+    return 'testuser'; // Default for testing
+}
+
+function filterByCurrentUser(data, username) {
+    console.log('🔍 Filtering data for username:', username);
+    console.log('📊 Total data entries:', data ? data.length : 0);
+    
+    if (!data || !username || username === 'unknown_user') {
+        console.log('⚠️ No filtering applied, returning all data');
+        return data || []; // Return all data if no specific username
+    }
+    
+    // Debug: show all usernames in data
+    if (data && data.length > 0) {
+        const usernames = data.map(entry => entry.uploader_username);
+        console.log('📋 Available usernames in data:', [...new Set(usernames)]);
+        
+        // Debug: show detailed info for each entry
+        data.forEach((entry, index) => {
+            console.log(`📄 Entry ${index + 1}:`, {
+                uploader_username: entry.uploader_username,
+                source_file: entry.source_file,
+                filename: entry.file_data?.filename,
+                has_source_file: !!entry.source_file,
+                source_file_type: typeof entry.source_file
+            });
+        });
+    }
+    
+    // Filter entries where uploader_username matches current user
+    const filtered = data.filter(entry => {
+        const match = entry.uploader_username === username;
+        console.log(`🔍 Checking entry: ${entry.uploader_username} === ${username} ? ${match}`);
+        if (match) {
+            console.log(`✅ Matched entry:`, {
+                uploader_username: entry.uploader_username,
+                source_file: entry.source_file,
+                filename: entry.file_data?.filename
+            });
+        }
+        return match;
+    });
+    
+    console.log('🎯 Filtered entries:', filtered.length);
+    console.log('📋 Filtered data:', filtered);
+    
+    return filtered;
+}
+
+async function autoSelectUserData(username) {
+    if (!username || username === 'unknown_user') return;
+    
+    console.log('🔍 Auto-selecting data for username:', username);
+    console.log('📊 Available data in cache:', userDatabaseCache);
+    
+    // Find user's data in cache
+    const userData = userDatabaseCache.find(entry => entry.uploader_username === username);
+    
+    if (userData) {
+        selectedUserData = userData;
+        console.log('✅ Found and selected data:', userData);
+        
+        // Highlight the entry if it exists in the display
+        setTimeout(() => {
+            const userEntry = document.querySelector(`[onclick="selectUserData('${username}', '${userData.source_file || 'unknown'}')"]`);
+            if (userEntry) {
+                userEntry.classList.add('selected');
+            }
+        }, 100);
+        
+        // **NEW: Auto-connect to document source**
+        const sourceFile = userData.source_file || 'unknown';
+        
+        // Check if document is already chunked
+        try {
+            const chunkingStatus = await checkChunkingStatus(username);
+            const isChunked = chunkingStatus[sourceFile] && chunkingStatus[sourceFile] > 0;
+            
+            if (!isChunked) {
+                // Document is not chunked, automatically read it
+                console.log('📚 Auto-reading document:', sourceFile);
+                
+                // Show notification about auto-connection
+                showInfoNotification(
+                    '🔗 <strong>Tự động kết nối tài liệu nguồn...</strong>',
+                    `Đang tự động đọc tài liệu "${sourceFile}" để bạn có thể chat ngay lập tức!`
+                );
+                
+                // Automatically read the document
+                await readDocument(username, sourceFile);
+                
+                // Show success message
+                setTimeout(() => {
+                    showSuccessNotification(
+                        '✅ <strong>Tự động kết nối thành công!</strong>',
+                        'Bạn có thể bắt đầu chat về nội dung tài liệu ngay bây giờ!'
+                    );
+                }, 2000);
+                
+            } else {
+                // Document is already chunked
+                console.log('✅ Document already chunked, ready to use');
+                showSuccessNotification(
+                    '🔗 <strong>Tài liệu đã sẵn sàng!</strong>',
+                    `Tài liệu "${sourceFile}" đã được đọc và sẵn sàng để chat!`
+                );
+            }
+            
+        } catch (error) {
+            console.error('❌ Error during auto-connection:', error);
+            showInfoNotification(
+                '⚠️ <strong>Không thể tự động kết nối</strong>',
+                `Tài liệu "${sourceFile}" có thể cần được đọc thủ công. Nhấn nút "Đọc" nếu cần.`
+            );
+        }
+        
+        // Show auto-selection message (commented out original message)
+        // addMessage(`🔍 <strong>Tự động tải dữ liệu của bạn:</strong><br>
+        //            👤 Người dùng: ${userData.uploader_username}<br>
+        //            📁 File: ${userData.source_file || userData.file_data?.filename || 'Không có tên'}<br>
+        //            📅 Ngày tải: ${formatDate(userData.upload_date)}<br>
+        //            📝 Mô tả: ${userData.metadata.description || 'Không có mô tả'}<br><br>
+        //            💡 Dữ liệu đã sẵn sàng để phân tích!<br>
+        //            🎯 Thử hỏi: "phân tích dữ liệu" hoặc "tóm tắt file"`, 'bot');
+    } else {
+        console.log('⚠️ No data found for username:', username);
+        
+        // Check if there's data for similar usernames
+        const similarUsernames = userDatabaseCache
+            .map(entry => entry.uploader_username)
+            .filter(user => user.toLowerCase().includes(username.toLowerCase()) || username.toLowerCase().includes(user.toLowerCase()));
+        
+        let message = `📋 <strong>Chưa có dữ liệu:</strong><br><br>
+                       Chưa tìm thấy dữ liệu nào cho tài khoản <strong>${username}</strong>.<br><br>`;
+        
+        if (similarUsernames.length > 0) {
+            message += `🔍 <strong>Tìm thấy dữ liệu tương tự:</strong><br>`;
+            message += similarUsernames.map(user => `• ${user}`).join('<br>') + '<br><br>';
+        }
+        
+        message += `Bạn có thể:<br>
+                   📤 Tải lên dữ liệu mới bằng nút "Tải lên dữ liệu"<br>
+                   🔄 Làm mới danh sách<br>
+                   🎯 Tạo dữ liệu mẫu để demo<br>
+                   💬 Hoặc chat bình thường mà không cần dữ liệu`;
+        
+        addMessage(message, 'bot');
+        
+        // Add TTS demo message
+        setTimeout(() => {
+            addMessage(`🔊 <strong>Chức năng Text-to-Speech đã sẵn sàng!</strong><br><br>
+                       🎤 Sử dụng FPT.AI để chuyển đổi văn bản thành giọng nói<br>
+                       🔊 Nhấp vào biểu tượng loa 🔊 bên cạnh bất kỳ tin nhắn nào để nghe<br>
+                       ⌨️ Phím tắt: <kbd>Ctrl+Shift+S</kbd> để đọc tin nhắn cuối, <kbd>Esc</kbd> để dừng<br>
+                       🎯 Hỗ trợ tiếng Việt với chất lượng cao<br><br>
+                       <button onclick="testTextToSpeech()" style="background: #10a37f; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                           <i class="fas fa-volume-up"></i> Test TTS
+                       </button>`, 'bot');
+        }, 1000);
+    }
+}
+
+// Function to check chunking status for documents
+async function checkChunkingStatus(username) {
+    try {
+        const response = await fetch(`/chunking/documents/?uploader_username=${encodeURIComponent(username)}`);
+        if (response.ok) {
+            const result = await response.json();
+            return result.chunked_files || {};
+        }
+    } catch (error) {
+        console.error('Error checking chunking status:', error);
+    }
+    return {};
+}
+
+function displayUserDatabase(data) {
+    const userDatabaseList = document.getElementById('userDatabaseList');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const currentUsername = getCurrentUsername();
+    
+    console.log('📊 Displaying user database data:', data);
+    
+    // Clear loading indicator
+    loadingIndicator.style.display = 'none';
+    
+    if (!data || data.length === 0) {
+        console.log('⚠️ No data to display for user:', currentUsername);
+        userDatabaseList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-database"></i>
+                <div>Chưa có dữ liệu cho <strong>${currentUsername}</strong></div>
+                <small>Vui lòng tải lên tài liệu để bắt đầu</small>
+            </div>
+        `;
+        return;
+    }
+    
+    console.log('✅ Rendering', data.length, 'entries');
+    
+    // First, render documents with loading status
+    userDatabaseList.innerHTML = data.map(entry => {
+        const displayName = entry.file_data?.filename || entry.metadata?.description || entry.source_file || 'Tài liệu không có tên';
+        const sourceFile = entry.source_file || 'unknown';
+        
+        return `
+            <div class="user-db-entry loading" onclick="selectUserData('${entry.uploader_username}', '${sourceFile}')">
+                <div class="user-db-username">
+                    <i class="fas fa-user"></i> ${entry.uploader_username}
+                </div>
+                <div class="user-db-info">
+                    <i class="fas fa-file"></i> ${displayName}
+                </div>
+                <div class="user-db-actions">
+                    <button class="btn-read-doc" onclick="event.stopPropagation(); readDocument('${entry.uploader_username}', '${sourceFile}')">
+                        <i class="fas fa-book-open"></i> Đọc 
+                    </button>
+                    <button class="btn-delete-doc" onclick="event.stopPropagation(); showDeleteOptions('${entry.uploader_username}', '${sourceFile}')">
+                        <i class="fas fa-trash"></i> Xoá
+                    </button>
+                    <button class="upload-date" style="display: flex; padding: 10px; align-items: center; gap: 4px;"
+                        onmouseenter="this.setAttribute('title', 'Ngày tải lên: ${entry.upload_date ? formatDate(entry.upload_date) : 'Không rõ'}')"
+                        onmouseleave="this.removeAttribute('title')">
+                        <i class="fas fa-calendar" style="color: #10a37f;"></i>
+                        <span class="upload-date-text">Thời gian</span>
+                    </button>
+                </div>
+                <div class="chunking-status loading">
+                    <i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Then, check chunking status for each user and update display
+    updateChunkingStatusDisplay(data);
+}
+
+// Thêm hàm mới này vào trong thẻ <script>
+async function toggleFilePin(docId) {
+    try {
+        // Giả định API endpoint của bạn. Bạn cần tạo API này ở backend.
+        const response = await fetch(`/api/documents/${docId}/toggle_pin/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Thao tác ghim/bỏ ghim thất bại');
+        }
+
+        const result = await response.json();
+
+        // Cập nhật giao diện ngay lập tức mà không cần tải lại trang
+        const entryDiv = document.getElementById(`doc-entry-${docId}`);
+        const pinBtn = entryDiv.querySelector('.btn-pin-file');
+
+        if (result.is_pinned) {
+            entryDiv.classList.add('pinned');
+            pinBtn.classList.add('active');
+            showSuccessNotification('Đã ghim tài liệu!');
+        } else {
+            entryDiv.classList.remove('pinned');
+            pinBtn.classList.remove('active');
+            showInfoNotification('Đã bỏ ghim tài liệu.');
+        }
+
+        // Tùy chọn: Để sắp xếp lại danh sách, bạn có thể gọi lại loadUserDatabase()
+        // Tuy nhiên, việc này sẽ làm trang tải lại, cập nhật tức thì sẽ mượt hơn.
+        // Nếu muốn sắp xếp lại, hãy bỏ comment dòng dưới đây:
+        // await loadUserDatabase();
+
+    } catch (error) {
+        showErrorNotification('Lỗi khi ghim file', error.message);
+    }
+}
+
+async function updateChunkingStatusDisplay(data) {
+    const usernames = [...new Set(data.map(entry => entry.uploader_username))];
+    
+    for (const username of usernames) {
+        try {
+            const chunkingStatus = await checkChunkingStatus(username);
+            console.log(`🔍 Chunking status for ${username}:`, chunkingStatus);
+            
+            // Update each document entry for this user
+            data.filter(entry => entry.uploader_username === username).forEach(entry => {
+                const sourceFile = entry.source_file || 'unknown';
+                const isChunked = chunkingStatus[sourceFile] && chunkingStatus[sourceFile] > 0;
+                const chunkCount = chunkingStatus[sourceFile] || 0;
+                
+                // Find the DOM element and update it
+                const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+                if (entryElement) {
+                    // Remove loading class and add appropriate status class
+                    entryElement.classList.remove('loading');
+                    entryElement.classList.add(isChunked ? 'chunked' : 'not-chunked');
+                    
+                    // Update status badge
+                    const statusBadge = entryElement.querySelector('.chunking-status');
+                    if (statusBadge) {
+                        statusBadge.classList.remove('loading');
+                        statusBadge.classList.add(isChunked ? 'chunked' : 'not-chunked');
+                        
+                        if (isChunked) {
+                            statusBadge.innerHTML = `<i class="fas fa-check-circle"></i> Đã đọc (${chunkCount})`;
+                        } else {
+                            statusBadge.innerHTML = `<i class="fas fa-clock"></i> Chưa đọc`;
+                        }
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error(`Error checking chunking status for ${username}:`, error);
+            
+            // Update to show error state
+            data.filter(entry => entry.uploader_username === username).forEach(entry => {
+                const sourceFile = entry.source_file || 'unknown';
+                const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+                if (entryElement) {
+                    entryElement.classList.remove('loading');
+                    entryElement.classList.add('not-chunked');
+                    
+                    const statusBadge = entryElement.querySelector('.chunking-status');
+                    if (statusBadge) {
+                        statusBadge.classList.remove('loading');
+                        statusBadge.classList.add('not-chunked');
+                        statusBadge.innerHTML = `<i class="fas fa-question-circle"></i> Không rõ`;
+                    }
+                }
+            });
+        }
+    }
+}
+
+function selectUserData(username, sourceFile) {
+    // Remove previous selection
+    document.querySelectorAll('.user-db-entry').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    // Add selection to clicked item
+    event.currentTarget.classList.add('selected');
+    
+    selectedUserData = userDatabaseCache.find(entry => 
+        entry.uploader_username === username && 
+        (entry.source_file === sourceFile || entry.file_data?.filename === sourceFile)
+    );
+    
+    if (selectedUserData) {
+        showSuccessNotification(
+            `<strong>Đã chọn tài liệu:</strong><br>
+             👤 Người dùng: ${selectedUserData.uploader_username}<br>
+             📁 File: ${selectedUserData.source_file || selectedUserData.file_data?.filename || 'Không có tên'}<br>
+             📅 Ngày tải: ${formatDate(selectedUserData.upload_date)}<br>`,
+            ''
+        );
+    }
+}
+
+// Helper function to update single document chunking status
+async function updateSingleDocumentStatus(username, sourceFile) {
+    try {
+        const response = await fetch(`/chunking/documents/?uploader_username=${encodeURIComponent(username)}&source_file=${encodeURIComponent(sourceFile)}`);
+        if (response.ok) {
+            const result = await response.json();
+            const isChunked = result.chunked || false;
+            const chunkCount = result.chunk_count || 0;
+            
+            // Find the DOM element and update it
+            const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+            if (entryElement) {
+                // Remove old status classes
+                entryElement.classList.remove('chunked', 'not-chunked', 'loading');
+                entryElement.classList.add(isChunked ? 'chunked' : 'not-chunked');
+                
+                // Update status badge
+                const statusBadge = entryElement.querySelector('.chunking-status');
+                if (statusBadge) {
+                    statusBadge.classList.remove('chunked', 'not-chunked', 'loading');
+                    statusBadge.classList.add(isChunked ? 'chunked' : 'not-chunked');
+                    
+                    if (isChunked) {
+                        statusBadge.innerHTML = `<i class="fas fa-check-circle"></i> Đã chunked (${chunkCount})`;
+                    } else {
+                        statusBadge.innerHTML = `<i class="fas fa-clock"></i> Chưa chunked`;
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error updating document status:', error);
+    }
+}
+
+// New function to read/chunk document
+async function readDocument(username, sourceFile) {
+    try {
+        // Update UI to show processing
+        const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+        if (entryElement) {
+            const statusBadge = entryElement.querySelector('.chunking-status');
+            if (statusBadge) {
+                statusBadge.classList.remove('chunked', 'not-chunked');
+                statusBadge.classList.add('loading');
+                statusBadge.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang đọc ...`;
+            }
+        }
+        
+        const response = await fetch('/chunking/documents/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                uploader_username: username,
+                source_file: sourceFile
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showSuccessNotification(`✅ <strong>Đọc tài liệu thành công!</strong><br>
+                       📄 Tài liệu: ${sourceFile}<br>
+                       📝 ${result.message}<br>
+                       💡 Bây giờ bạn có thể chat về nội dung tài liệu này!`);
+            
+            // Update chunking status
+            await updateSingleDocumentStatus(username, sourceFile);
+            
+        } else {
+            // Display detailed error information
+            let errorMessage = `❌ <strong>Lỗi đọc tài liệu:</strong><br>
+                               📄 Tài liệu: ${sourceFile}<br>
+                               💥 ${result.message || 'Không thể xử lý tài liệu'}<br>`;
+            
+            // Add debug info if available
+            if (result.debug_info) {
+                errorMessage += `<br>🔍 <strong>Debug Info:</strong><br>
+                                <pre style="background: #f5f5f5; padding: 10px; font-size: 0.8rem; white-space: pre-wrap;">${result.debug_info}</pre>`;
+            }
+            
+            // Add search strategies tried
+            if (result.search_strategies_tried) {
+                errorMessage += `<br>🔎 <strong>Strategies tried:</strong><br>
+                                ${result.search_strategies_tried.map(s => `• ${s}`).join('<br>')}`;
+            }
+            
+            showErrorNotification(errorMessage);
+            
+            // Reset status to not-chunked
+            if (entryElement) {
+                const statusBadge = entryElement.querySelector('.chunking-status');
+                if (statusBadge) {
+                    statusBadge.classList.remove('loading');
+                    statusBadge.classList.add('not-chunked');
+                    statusBadge.innerHTML = `<i class="fas fa-clock"></i> Chưa chunked`;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error reading document:', error);
+        showErrorNotification(`❌ <strong>Lỗi kết nối:</strong><br>
+                   Không thể kết nối đến service đọc tài liệu.<br>
+                   📄 Tài liệu: ${sourceFile}<br>
+                   🔍 Chi tiết lỗi: ${error.message}`);
+        
+        // Reset status to not-chunked
+        const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+        if (entryElement) {
+            const statusBadge = entryElement.querySelector('.chunking-status');
+            if (statusBadge) {
+                statusBadge.classList.remove('loading');
+                statusBadge.classList.add('not-chunked');
+                statusBadge.innerHTML = `<i class="fas fa-clock"></i> Chưa chunked`;
+            }
+        }
+    }
+}
+
+// New function to delete document chunking data ONLY
+async function deleteDocumentChunking(username, sourceFile) {
+    if (!confirm(`Bạn có chắc muốn xoá CHUNKING data của tài liệu "${sourceFile}"?\n\n⚠️ Lưu ý: Chỉ xoá chunks, document gốc sẽ được giữ lại để có thể chunking lại sau.`)) {
+        return;
+    }
+    
+    try {
+        // Update UI to show processing
+        const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+        if (entryElement) {
+            const statusBadge = entryElement.querySelector('.chunking-status');
+            if (statusBadge) {
+                statusBadge.classList.remove('chunked', 'not-chunked');
+                statusBadge.classList.add('loading');
+                statusBadge.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang xoá chunks...`;
+            }
+        }
+        
+        addMessage(`🗑️ <strong>Đang xoá chunking data:</strong><br>
+                   👤 Người dùng: ${username}<br>
+                   📁 File: ${sourceFile}<br>
+                   ⏳ Chỉ xoá chunks, giữ lại document gốc...`, 'bot');
+        
+        // Delete document chunking ONLY
+        const chunkingResponse = await fetch(`/chunking/documents/?uploader_username=${encodeURIComponent(username)}&source_file=${encodeURIComponent(sourceFile)}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const chunkingResult = await chunkingResponse.json();
+        
+        // Check results and display detailed info
+        const chunkingSuccess = chunkingResponse.ok;
+        
+        if (chunkingSuccess) {
+            let message = `✅ <strong>Xoá chunking data thành công!</strong><br>
+                          📄 Tài liệu: ${sourceFile}<br>`;
+            
+            // Display chunking deletion details
+            if (chunkingResult.details) {
+                message += `<br>🗑️ <strong>Chi tiết xoá chunking:</strong><br>`;
+                if (chunkingResult.details.chunks_deleted > 0) {
+                    message += `• Chunks đã xoá: ${chunkingResult.details.chunks_deleted}<br>`;
+                }
+                if (chunkingResult.details.document_preserved) {
+                    message += `• Document gốc: Được giữ lại trong database<br>`;
+                }
+                if (chunkingResult.details.actual_source_file) {
+                    message += `• Source file ID: ${chunkingResult.details.actual_source_file}<br>`;
+                }
+            } else {
+                message += `🗑️ Đã xoá chunking data: ${chunkingResult.message || 'Hoàn tất'}<br>`;
+            }
+            
+            message += `<br>💡 <strong>Lưu ý:</strong> Document gốc vẫn còn, bạn có thể chunking lại bất cứ lúc nào!`;
+            showSuccessNotification(message);
+            
+            // Update status to not-chunked (since chunks were deleted but document still exists)
+            await updateSingleDocumentStatus(username, sourceFile);
+            
+        } else {
+            let message = `❌ <strong>Lỗi xoá chunking data:</strong><br>
+                        📄 Tài liệu: ${sourceFile}<br>
+                        💥 ${chunkingResult.message || 'Lỗi không rõ'}`;
+            showErrorNotification(message);
+            
+            // Reset status since deletion failed
+            await updateSingleDocumentStatus(username, sourceFile);
+        }
+        
+    } catch (error) {
+        console.error('Error deleting chunking data:', error);
+        showErrorNotification(`❌ <strong>Lỗi kết nối:</strong><br>
+                   Không thể kết nối đến service xoá chunking.<br>
+                   📄 Tài liệu: ${sourceFile}<br>
+                   🔍 Chi tiết lỗi: ${error.message}`, 'bot');
+        
+        // Reset status
+        const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+        if (entryElement) {
+            const statusBadge = entryElement.querySelector('.chunking-status');
+            if (statusBadge) {
+                statusBadge.classList.remove('loading');
+                statusBadge.classList.add('not-chunked');
+                statusBadge.innerHTML = `<i class="fas fa-question-circle"></i> Không rõ`;
+            }
+        }
+    }
+}
+
+// Function to show delete options
+function showDeleteOptions(username, sourceFile) {
+    const options = [
+        {
+            text: "🗑️ Chỉ xoá Chunks (giữ lại tài liệu gốc)",
+            description: "Xoá dữ liệu chunking, tài liệu gốc vẫn còn để chunking lại sau",
+            action: () => deleteDocumentChunking(username, sourceFile)
+        },
+        {
+            text: "💀 Xoá hoàn toàn tài liệu",
+            description: "Xoá cả tài liệu gốc và chunking data (không thể khôi phục)",
+            action: () => deleteDocumentCompletely(username, sourceFile)
+        }
+    ];
+    
+    let message = `🤔 <strong>Chọn hành động xoá cho tài liệu:</strong><br>
+                   📄 <strong>${sourceFile}</strong><br><br>`;
+    
+    options.forEach((option, index) => {
+        message += `<button onclick="document.getElementById('deleteOption${index}').click()" 
+                           style="display: block; width: 100%; margin: 10px 0; padding: 10px; 
+                                  background: ${index === 0 ? '#ffc107' : '#dc3545'}; 
+                                  color: white; border: none; border-radius: 8px; cursor: pointer;">
+                       ${option.text}
+                    </button>
+                    <small style="color: #666; font-style: italic;">${option.description}</small><br><br>`;
+    });
+    
+    addMessage(message, 'bot');
+    
+    // Add hidden buttons to handle actions
+    options.forEach((option, index) => {
+        const hiddenButton = document.createElement('button');
+        hiddenButton.id = `deleteOption${index}`;
+        hiddenButton.style.display = 'none';
+        hiddenButton.onclick = option.action;
+        document.body.appendChild(hiddenButton);
+        
+        // Auto-remove after 30 seconds
+        setTimeout(() => {
+            if (document.getElementById(`deleteOption${index}`)) {
+                document.body.removeChild(hiddenButton);
+            }
+        }, 30000);
+    });
+}
+
+// Function to completely delete document and all its data
+async function deleteDocumentCompletely(username, sourceFile) {
+    if (!confirm(`⚠️ BẠN CÓ CHẮC CHẮN MUỐN XOÁ HOÀN TOÀN TÀI LIỆU "${sourceFile}"?\n\n💀 Hành động này sẽ xoá:\n• Tài liệu gốc trong database\n• Tất cả chunking data\n\n🚨 KHÔNG THỂ KHÔI PHỤC sau khi xoá!`)) {
+        return;
+    }
+    
+    try {
+        // Update UI to show processing
+        const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+        if (entryElement) {
+            const statusBadge = entryElement.querySelector('.chunking-status');
+            if (statusBadge) {
+                statusBadge.classList.remove('chunked', 'not-chunked');
+                statusBadge.classList.add('loading');
+                statusBadge.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang xoá hoàn toàn...`;
+            }
+        }
+        
+        addMessage(`💀 <strong>Đang xoá hoàn toàn tài liệu:</strong><br>
+                   👤 Người dùng: ${username}<br>
+                   📁 File: ${sourceFile}<br>
+                   ⏳ Xoá cả document gốc và chunking data...`, 'bot');
+        
+        // Delete chunking data first
+        const chunkingResponse = await fetch(`/chunking/documents/?uploader_username=${encodeURIComponent(username)}&source_file=${encodeURIComponent(sourceFile)}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const chunkingResult = await chunkingResponse.json();
+        
+        // Delete user database entry
+        const dbResponse = await fetch(`/api/user-database/?uploader_username=${encodeURIComponent(username)}&source_file=${encodeURIComponent(sourceFile)}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const dbResult = await dbResponse.json();
+        
+        // Check results and display detailed info
+        const chunkingSuccess = chunkingResponse.ok;
+        const dbSuccess = dbResponse.ok && dbResult.success;
+        
+        if (chunkingSuccess && dbSuccess) {
+            let message = `✅ <strong>Xoá hoàn toàn thành công!</strong><br>
+                          📄 Tài liệu: ${sourceFile}<br>`;
+            
+            // Display chunking deletion details
+            if (chunkingResult.details) {
+                message += `<br>🗑️ <strong>Chi tiết xoá chunking:</strong><br>`;
+                if (chunkingResult.details.chunks_deleted > 0) {
+                    message += `• Chunks đã xoá: ${chunkingResult.details.chunks_deleted}<br>`;
+                }
+            }
+            
+            // Display database deletion details
+            if (dbResult.details) {
+                message += `<br>🗃️ <strong>Chi tiết xoá database:</strong><br>`;
+                if (dbResult.details.strategy_used) {
+                    message += `• Phương pháp: ${dbResult.details.strategy_used}<br>`;
+                }
+                if (dbResult.details.filename) {
+                    message += `• Tên file: ${dbResult.details.filename}<br>`;
+                }
+            }
+            
+            message += `<br>💀 <strong>Tài liệu đã bị xoá hoàn toàn khỏi hệ thống!</strong>`;
+            showSuccessNotification(message);
+            
+            // Remove the document from display
+            if (entryElement) {
+                entryElement.remove();
+            }
+            
+        } else if (chunkingSuccess && !dbSuccess) {
+            let message = `⚠️ <strong>Xoá một phần thành công:</strong><br>
+                          📄 Tài liệu: ${sourceFile}<br>
+                          ✅ Đã xoá chunking data<br>
+                          ❌ Lỗi xoá database entry: ${dbResult.message || 'Không rõ'}`;
+            
+            showInfoNotification(message);
+            await updateSingleDocumentStatus(username, sourceFile);
+            
+        } else if (!chunkingSuccess && dbSuccess) {
+            let message = `⚠️ <strong>Xoá một phần thành công:</strong><br>
+                          📄 Tài liệu: ${sourceFile}<br>
+                          ✅ Đã xoá database entry<br>
+                          ❌ Lỗi xoá chunking data: ${chunkingResult.message || 'Không rõ'}`;
+            
+            showInfoNotification(message);
+            await updateSingleDocumentStatus(username, sourceFile);
+            
+        } else {
+            let message = `❌ <strong>Lỗi xoá tài liệu:</strong><br>
+                          📄 Tài liệu: ${sourceFile}<br>
+                          💥 Chunking: ${chunkingResult.message || 'Lỗi không rõ'}<br>
+                          💥 Database: ${dbResult.message || 'Lỗi không rõ'}`;
+            
+            showErrorNotification(message);
+            await updateSingleDocumentStatus(username, sourceFile);
+        }
+        
+        // Refresh the document list
+        loadUserDatabase();
+        
+    } catch (error) {
+        console.error('Error completely deleting document:', error);
+        showErrorNotification(`❌ <strong>Lỗi kết nối:</strong><br>
+                   Không thể kết nối đến server để xoá tài liệu.<br>
+                   📄 Tài liệu: ${sourceFile}<br>
+                   🔍 Chi tiết lỗi: ${error.message}`, 'bot');
+        
+        // Reset status
+        const entryElement = document.querySelector(`[onclick="selectUserData('${username}', '${sourceFile}')"]`);
+        if (entryElement) {
+            const statusBadge = entryElement.querySelector('.chunking-status');
+            if (statusBadge) {
+                statusBadge.classList.remove('loading');
+                statusBadge.classList.add('not-chunked');
+                statusBadge.innerHTML = `<i class="fas fa-question-circle"></i> Không rõ`;
+            }
+        }
+    }
+}
+ 
+ // Remove upload modal and related functions
+ function uploadUserData() {
+     showWarningNotification('Chức năng tải lên đã bị vô hiệu hóa', 'Vui lòng sử dụng các trang chức năng khác để tải lên tài liệu.');
+ }
+ 
+ // Search for user data by username
+ async function searchUserDataByUsername(username) {
+     try {
+         const response = await fetch(`/api/user-database/?uploader_username=${encodeURIComponent(username)}`);
+         const result = await response.json();
+         
+         if (result.success && result.data) {
+             return result.data;
+         } else {
+             console.log(`No data found for username: ${username}`);
+             return null;
+         }
+     } catch (error) {
+         console.error('Error searching user data:', error);
+         return null;
+     }
+ }
+ 
+ // Load user's own data specifically
+ async function loadMyUserData() {
+     const currentUsername = getCurrentUsername();
+     
+     if (!currentUsername || currentUsername === 'unknown_user') {
+         showError('Không thể xác định tên người dùng hiện tại');
+         return;
+     }
+     
+     try {
+         const userData = await searchUserDataByUsername(currentUsername);
+         
+         if (userData) {
+             selectedUserData = userData;
+             
+             addMessage(`🎯 <strong>Tìm thấy tài liệu của bạn:</strong><br>
+                        👤 Người dùng: ${userData.uploader_username}<br>
+                        📁 File: ${userData.source_file || userData.file_data?.filename || 'Không có tên'}<br>
+                        📅 Ngày tải: ${formatDate(userData.upload_date)}<br>
+                        📝 Mô tả: ${userData.metadata?.description || 'Không có mô tả'}<br><br>
+                        ✨ Sẵn sàng để phân tích và trò chuyện!`, 'bot');
+         } else {
+             addMessage(`🔍 <strong>Không tìm thấy tài liệu:</strong><br><br>
+                        Chưa có tài liệu nào cho tài khoản <strong>${currentUsername}</strong>.<br>
+                        Bạn có thể:<br>
+                        📤 Tải lên tài liệu mới<br>
+                        🔄 Làm mới danh sách<br>
+                        💬 Vẫn có thể chat bình thường`, 'bot');
+         }
+     } catch (error) {
+         showError('Lỗi khi tìm kiếm tài liệu người dùng');
+     }
+ }
+ 
+ // Utility functions
+ function formatDate(dateString) {
+     const date = new Date(dateString);
+     return date.toLocaleDateString('vi-VN', {
+         year: 'numeric',
+         month: 'short',
+         day: 'numeric',
+         hour: '2-digit',
+         minute: '2-digit'
+     });
+ }
+ 
+ function getCookie(name) {
+     let cookieValue = null;
+     if (document.cookie && document.cookie !== '') {
+         const cookies = document.cookie.split(';');
+         for (let i = 0; i < cookies.length; i++) {
+             const cookie = cookies[i].trim();
+             if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                 cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                 break;
+             }
+         }
+     }
+     return cookieValue;
+ }
+ 
+ function showError(message) {
+     showErrorNotification('Lỗi', message);
+ }
+ 
+ // Original chat functions
+ function handleKeyPress(event) {
+     if (event.key === 'Enter') {
+         event.preventDefault();
+         sendMessage();
+     }
+ }
+ 
+ function sendMessage() {
+     const input = document.getElementById('messageInput');
+     const message = input.value.trim();
+     
+     if (!message) return;
+     
+     // Add user message first
+     addMessage(message, 'user');
+     input.value = '';
+     
+     // Show thinking indicator immediately with animation
+     showThinkingIndicator();
+     
+     // Scroll to bottom to show the thinking indicator
+     document.getElementById('chatBody').scrollTop = document.getElementById('chatBody').scrollHeight;
+     
+     // Send message to WoxionChat service
+     sendToWoxionChat(message);
+ }
+
+ // New function to show the enhanced thinking indicator
+ function showThinkingIndicator() {
+     const indicator = document.getElementById('typingIndicator');
+     indicator.classList.remove('show'); // Reset animation
+     indicator.style.display = 'block';
+     
+     // Trigger animation with slight delay for smooth effect
+     setTimeout(() => {
+         indicator.classList.add('show');
+     }, 10);
+     
+     console.log('🧠 Thinking indicator shown');
+ }
+
+ // New function to hide the thinking indicator
+ function hideThinkingIndicator() {
+     const indicator = document.getElementById('typingIndicator');
+     indicator.classList.remove('show');
+     
+     // Hide after animation completes
+     setTimeout(() => {
+         indicator.style.display = 'none';
+     }, 300);
+     
+     console.log('🧠 Thinking indicator hidden');
+ }
+ 
+ async function sendToWoxionChat(message) {
+     try {
+         // Prevent multiple simultaneous requests
+         if (ongoingChatRequest) {
+             console.log('⚠️ Chat request already in progress, ignoring new request');
+             addBotMessageWithTypewriter('⏳ <strong>Vui lòng chờ:</strong><br>Đang xử lý yêu cầu trước đó...');
+             return;
+         }
+         
+         const currentUsername = getCurrentUsername();
+         
+         // Mark request as ongoing
+         ongoingChatRequest = true;
+         
+         // Start heartbeat to prevent timeouts
+         startHeartbeat();
+         
+         // Prepare the request payload for WoxionChat
+         const payload = {
+             message: message,  // WoxionChat expects 'query' not 'message'
+             user_id: currentUsername,
+             session_id: `session_${currentUsername}_${Date.now()}`,
+             // Include selected document info if available
+             context: selectedUserData ? {
+                 selected_document: {
+                     username: selectedUserData.uploader_username,
+                     source_file: selectedUserData.source_file,
+                     filename: selectedUserData.file_data?.filename,
+                     description: selectedUserData.metadata?.description
+                 }
+             } : {},
+             // Additional WoxionChat parameters
+             memory_enabled: true,
+             use_documents: selectedUserData ? true : false,
+             // System prompt để đảm bảo định dạng Markdown
+             system_prompt: `Bạn là một trợ lý AI chuyên gia, có nhiệm vụ phân tích thông tin được cung cấp và trình bày câu trả lời cho người dùng một cách rõ ràng, logic và có cấu trúc cao.
+
+QUY TẮC BẮT BUỘC: TOÀN BỘ PHẢN HỒI CỦA BẠN PHẢI Ở ĐỊNH DẠNG MARKDOWN. KHÔNG BAO GIỜ VIẾT HTML.
+
+Hãy tuân thủ nghiêm ngặt các quy tắc định dạng sau để đảm bảo tính nhất quán và dễ đọc:
+
+1. **Tiêu đề (Headings):** Sử dụng \`##\` cho các phần chính và \`###\` cho các tiểu mục để tạo ra hệ thống phân cấp rõ ràng. Bắt đầu bằng một tiêu đề chính tóm tắt nội dung.
+
+2. **Danh sách (Lists):**
+   * Sử dụng dấu \`*\` hoặc \`-\` cho các danh sách không có thứ tự.
+   * Sử dụng số (\`1.\`, \`2.\`) cho các hướng dẫn từng bước hoặc khi thứ tự quan trọng.
+   * Sử dụng thụt lề để tạo danh sách con (nested lists).
+
+3. **Nhấn mạnh (Emphasis):**
+   * Sử dụng \`**văn bản in đậm**\` cho các thuật ngữ quan trọng hoặc các kết luận chính.
+   * Sử dụng \`*văn bản in nghiêng*\` để nhấn mạnh nhẹ nhàng hơn.
+
+4. **Mã nội tuyến (Inline Code):** Sử dụng dấu backtick ( \` ) để bao bọc các thuật ngữ kỹ thuật, tên file, từ viết tắt, hoặc các đoạn mã ngắn.
+
+5. **Khối mã (Code Blocks):** Đối với các đoạn mã nhiều dòng, hãy sử dụng ba dấu backtick ( \`\`\` ) và chỉ định ngôn ngữ lập trình nếu có thể.
+
+6. **Bảng (Tables):** Khi cần so sánh, hãy trình bày thông tin dưới dạng bảng Markdown.
+
+7. **Trích dẫn (Blockquotes):** Sử dụng dấu \`>\` để làm nổi bật các cảnh báo, ghi chú quan trọng hoặc các trích dẫn trực tiếp.
+
+8. **Thanh phân cách (Horizontal Rules):** Sử dụng \`---\` để tách biệt các phần nội dung hoàn toàn khác nhau.
+
+Kết quả sẽ là đoạn Markdown có cấu trúc hoàn hảo, sẵn sàng để render bằng marked.js.`
+         };
+         
+         // Debug logging
+         console.log('🔍 Sending to WoxionChat (NO TIMEOUT):', {
+             endpoint: '/chat/chat',
+             payload: payload,
+             selectedDocument: selectedUserData ? selectedUserData.source_file : 'none',
+             timestamp: new Date().toISOString()
+         });
+         
+         // Show typing indicator (already shown in sendMessage, but ensure it's visible)
+         // Note: indicator already shown from sendMessage function
+         
+         // Create AbortController without timeout to prevent any automatic cancellation
+         const controller = new AbortController();
+         
+         // Send request to WoxionChat via proxy (absolutely no timeout limits)
+         const response = await fetch('/chat/chat', {
+             method: 'POST',
+             headers: {
+                 'Content-Type': 'application/json',
+                 'X-CSRFToken': getCookie('csrftoken'),
+                 'Connection': 'keep-alive',
+                 'Cache-Control': 'no-cache',
+                 'Keep-Alive': 'timeout=0, max=1000'  // Disable keep-alive timeout
+             },
+             body: JSON.stringify(payload),
+             // Multiple strategies to prevent timeout
+             signal: controller.signal,  // AbortController without timeout
+             keepalive: true,           // Keep connection alive
+             cache: 'no-cache'         // Prevent caching issues
+             // Note: No timeout parameter = unlimited timeout
+         });
+         
+         // Hide typing indicator when response is received
+         hideThinkingIndicator();
+         
+         console.log('📡 WoxionChat response received at:', new Date().toISOString(), 'Status:', response.status);
+         
+         if (response.ok) {
+             const result = await response.json();
+             console.log('✅ WoxionChat response:', result);
+             
+             // Display WoxionChat response
+             if (result.response) {
+                 addBotMessageWithTypewriter(`${result.response}`);
+             } else if (result.message) {
+                 addBotMessageWithTypewriter(`${result.message}`);
+             } else if (result.answer) {
+                 addBotMessageWithTypewriter(`${result.answer}`);
+             } else {
+                 addBotMessageWithTypewriter('✅ Đã nhận phản hồi từ WoxionChat<br>' + JSON.stringify(result));
+             }
+             
+             // Show additional info if available
+             if (result.sources && result.sources.length > 0) {
+                 let contextInfo = '<br><br>📚 <strong>Nguồn tham khảo:</strong><br>';
+                 contextInfo += result.sources.map((source, index) => `${index + 1}. ${source}`).join('<br>');
+                 addBotMessageWithTypewriter(contextInfo);
+             }
+             
+             if (result.context && result.context !== '{}') {
+                 addBotMessageWithTypewriter(`<br>🔍 <strong>Context:</strong> ${result.context}`);
+             }
+             
+         } else {
+             // Handle error responses
+             const errorText = await response.text();
+             let errorData = null;
+             
+             try {
+                 errorData = JSON.parse(errorText);
+             } catch (e) {
+                 console.error('Failed to parse error response as JSON:', errorText);
+             }
+             
+             console.error('❌ WoxionChat error:', {
+                 status: response.status,
+                 statusText: response.statusText,
+                 errorData: errorData,
+                 rawText: errorText
+             });
+             
+             let errorMessage = '❌ <strong>Lỗi từ WoxionChat:</strong><br>';
+             
+             if (errorData && errorData.error) {
+                 errorMessage += errorData.error;
+                 if (errorData.message) {
+                     errorMessage += `<br>Chi tiết: ${errorData.message}`;
+                 }
+             } else if (errorData && errorData.message) {
+                 errorMessage += errorData.message;
+             } else {
+                 errorMessage += `HTTP ${response.status}: ${response.statusText}`;
+                 if (errorText && errorText.length < 200) {
+                     errorMessage += `<br>Response: ${errorText}`;
+                 }
+             }
+             
+             addMessage(errorMessage, 'bot');
+             
+             // Simple fallback message instead of generateAdvancedResponse
+             addBotMessageWithTypewriter(`<br>🔄 <strong>Phản hồi dự phòng:</strong><br>Xin lỗi, WoxionChat hiện không khả dụng. Vui lòng thử lại sau.`);
+             addMessage(`<br>🔄 <strong>Phản hồi dự phòng:</strong><br>Xin lỗi, WoxionChat hiện không khả dụng. Vui lòng thử lại sau.`, 'bot');
+         }
+         
+     } catch (error) {
+         // Hide typing indicator on error
+         hideThinkingIndicator();
+         
+         console.error('❌ Error sending to WoxionChat:', error);
+         
+         // Show connection error
+         addMessage(`❌ <strong>Lỗi kết nối WoxionChat:</strong><br>
+                    ${error.message}<br><br>
+                    🔄 Đang chuyển sang chế độ dự phòng...`, 'bot');
+         
+         // Simple fallback message immediately without delay
+         addMessage(`<strong>Chế độ dự phòng:</strong><br>Không thể kết nối đến WoxionChat. Vui lòng kiểm tra kết nối và thử lại.`, 'bot');
+     } finally {
+         // Always cleanup after request completes (success or failure)
+         ongoingChatRequest = null;
+         stopHeartbeat();
+         
+         // Ensure thinking indicator is hidden
+         hideThinkingIndicator();
+         
+         console.log('🏁 Chat request completed at:', new Date().toISOString());
+     }
+ }
+ 
+ function addMessage(content, type) {
+     const chatBody = document.getElementById('chatBody');
+     const messageDiv = document.createElement('div');
+     messageDiv.className = `message ${type}`;
+     
+     const now = new Date();
+     const timeString = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+     
+     // Generate unique ID for this message
+     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+     messageDiv.id = messageId;
+     
+     // Process content based on type
+     let processedContent = content;
+     let cleanText = content;
+     
+     if (type === 'bot') {
+         // For bot messages, check if content looks like Markdown
+         if (isMarkdownContent(content)) {
+             try {
+                 // Configure marked.js for safe rendering
+                 marked.setOptions({
+                     breaks: true,
+                     gfm: true,
+                     sanitize: false,
+                     smartLists: true,
+                     smartypants: true
+                 });
+                 
+                 // Convert Markdown to HTML
+                 processedContent = marked.parse(content);
+                 console.log('📝 Converted Markdown to HTML for bot message');
+             } catch (error) {
+                 console.error('❌ Error parsing Markdown:', error);
+                 // Fallback to original content if Markdown parsing fails
+                 processedContent = content;
+             }
+         }
+         // Extract clean text for TTS (remove HTML tags)
+         cleanText = processedContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+     } else {
+         // For user messages, treat as plain text
+         cleanText = content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+     }
+     
+     // Create buttons based on message type
+     let buttonsHtml = '';
+     if (type === 'bot') {
+         // For bot messages, show both pin and speaker buttons
+         buttonsHtml = `
+             <button class="pin-btn" onclick="toggleMessagePin('${messageId}')" title="Ghim tin nhắn">
+                 <i class="fas fa-thumbtack"></i>
+             </button>
+             <button class="speaker-btn" onclick="speakMessage('${messageId}')" title="Đọc tin nhắn">
+                 <i class="fas fa-volume-up"></i>
+             </button>
+         `;
+     } else {
+         // For user messages, show only speaker button
+         buttonsHtml = `
+             <button class="speaker-btn" onclick="speakMessage('${messageId}')" title="Đọc tin nhắn">
+                 <i class="fas fa-volume-up"></i>
+             </button>
+         `;
+     }
+     
+     messageDiv.innerHTML = `
+         <div class="message-content">${processedContent}</div>
+         <div class="message-footer">
+             <div class="message-time" style="align-items: center;">${timeString}</div>
+             ${buttonsHtml}
+         </div>
+     `;
+     
+     // Store clean text as data attribute for TTS
+     messageDiv.setAttribute('data-text', cleanText);
+     
+     chatBody.appendChild(messageDiv);
+     chatBody.scrollTop = chatBody.scrollHeight;
+ }
+ 
+ // Helper function to detect if content is Markdown
+ function isMarkdownContent(content) {
+     // Check for common Markdown patterns
+     const markdownPatterns = [
+         /^#{1,6}\s+.+/m,           // Headers (# ## ###)
+         /\*\*[^*]+\*\*/,           // Bold text
+         /\*[^*]+\*/,               // Italic text
+         /`[^`]+`/,                 // Inline code
+         /^```[\s\S]*?```/m,        // Code blocks
+         /^\* |\*\s+/m,             // Unordered lists
+         /^\d+\.\s+/m,              // Ordered lists
+         /^>\s+/m,                  // Blockquotes
+         /^---+$/m,                 // Horizontal rules
+         /\[[^\]]+\]\([^)]+\)/      // Links
+     ];
+     
+     return markdownPatterns.some(pattern => pattern.test(content));
+ }
+ 
+ // Focus on input when page loads
+ document.getElementById('messageInput').focus();
+ 
+ // Debug function to test the system
+ async function debugUserDatabase() {
+     showInfoNotification('Chức năng Debug đã bị vô hiệu hóa', 'Sử dụng Developer Console để debug nếu cần thiết.');
+ }
+ 
+ async function testDirectAPI() {
+     showInfoNotification('Chức năng Test API đã bị vô hiệu hóa', 'Sử dụng Developer Console để test API nếu cần thiết.');
+ }
+ 
+ // Test WoxionChat connection
+ async function testWoxionChat() {
+     try {
+         showInfoNotification('🔍 Đang kiểm tra kết nối WoxionChat...', 'Vui lòng chờ một chút');
+         
+         const response = await fetch('/chat/health', {
+             method: 'GET',
+             headers: {
+                 'X-CSRFToken': getCookie('csrftoken')
+             }
+         });
+         
+         if (response.ok) {
+             const result = await response.json();
+             
+             let message = '✅ <strong>WoxionChat hoạt động tốt!</strong><br>';
+             message += `📊 Status: ${result.status}<br>`;
+             if (result.message) {
+                 message += `💬 Message: ${result.message}<br>`;
+             }
+             if (result.redis) {
+                 message += `🔴 Redis: ${result.redis.status}<br>`;
+             }
+             
+             showSuccessNotification(message);
+             
+             // Add to chat
+             addMessage(`🔧 <strong>Test WoxionChat thành công!</strong><br>${message}`, 'bot');
+             
+         } else {
+             const errorData = await response.json().catch(() => null);
+             let errorMessage = `❌ WoxionChat không phản hồi (${response.status})`;
+             if (errorData && errorData.error) {
+                 errorMessage += `<br>Chi tiết: ${errorData.error}`;
+             }
+             
+             showErrorNotification(errorMessage);
+             addMessage(errorMessage, 'bot');
+         }
+         
+     } catch (error) {
+         const errorMessage = `❌ <strong>Lỗi kết nối WoxionChat:</strong><br>${error.message}<br><br>💡 Đảm bảo service đang chạy trên port 5002`;
+         showErrorNotification(errorMessage);
+         addMessage(errorMessage, 'bot');
+     }
+ }
+ 
+ // Heartbeat function to prevent server-side timeouts
+function startHeartbeat() {
+    // Clear any existing heartbeat
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    
+    // Send a heartbeat every 30 seconds to keep the connection alive
+    heartbeatInterval = setInterval(async () => {
+        try {
+            // Send a lightweight ping to keep the connection alive
+            await fetch('/chat/health', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Connection': 'keep-alive'
+                },
+                keepalive: true,
+                cache: 'no-cache'
+            });
+            console.log('📡 Heartbeat sent to maintain connection');
+        } catch (error) {
+            console.log('⚠️ Heartbeat failed (non-critical):', error.message);
+        }
+    }, 30000); // Every 30 seconds
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+        console.log('💔 Heartbeat stopped');
+    }
+}
+
+// Start the heartbeat when the page loads
+document.addEventListener('DOMContentLoaded', startHeartbeat);
+
+// Cleanup when user leaves the page
+window.addEventListener('beforeunload', function() {
+    stopHeartbeat();
+    console.log('🔄 Page unloading, cleaned up heartbeat');
+});
+
+// Also cleanup on page visibility change (e.g., switching tabs)
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        // Page is hidden, continue heartbeat but reduce frequency
+        console.log('👁️ Page hidden, continuing heartbeat...');
+    } else {
+        // Page is visible again, ensure heartbeat is running
+        if (!heartbeatInterval) {
+            startHeartbeat();
+            console.log('👁️ Page visible again, restarted heartbeat');
+        }
+    }
+});
+
+// Function to test and warn about server timeout settings
+async function checkServerTimeoutSettings() {
+    try {
+        console.log('🔍 Checking server timeout settings...');
+        
+        // Test long request simulation
+        const startTime = Date.now();
+        const response = await fetch('/chat/health', {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache'
+            },
+            keepalive: true,
+            cache: 'no-cache'
+        });
+        
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+        
+        console.log(`⏱️ Server response time: ${responseTime}ms`);
+        
+        if (response.ok) {
+            console.log('✅ Server connection is healthy');
+            if (responseTime > 5000) {
+                console.log('⚠️ Warning: Server is responding slowly, might indicate timeout issues');
+            }
+        } else {
+            console.log('❌ Server health check failed');
+        }
+        
+    } catch (error) {
+        console.log('❌ Server timeout check failed:', error.message);
+    }
+}
+
+// === TEXT-TO-SPEECH FUNCTIONS ===
+
+let currentAudio = null; // Track currently playing audio
+let speechQueue = []; // Queue for multiple TTS requests
+
+async function speakMessage(messageId) {
+    console.log('[speakMessage] Called with messageId:', messageId);
+    const messageDiv = document.getElementById(messageId);
+    if (!messageDiv) {
+        console.error('[speakMessage] Message not found:', messageId);
+        return;
+    }
+    const speakerBtn = messageDiv.querySelector('.speaker-btn');
+    const text = messageDiv.getAttribute('data-text');
+    console.log('[speakMessage] Text to speak:', text);
+    if (!text || text.trim() === '') {
+        console.warn('[speakMessage] No text to speak for message:', messageId);
+        showWarningNotification('Không có văn bản để đọc', 'Tin nhắn này không có nội dung văn bản.');
+        return;
+    }
+    // Stop current audio if playing
+    if (currentAudio) {
+        console.log('[speakMessage] Stopping current audio before playing new.');
+        stopCurrentSpeech();
+    }
+    try {
+        // Update button state to loading
+        speakerBtn.classList.add('loading');
+        speakerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        speakerBtn.title = 'Đang xử lý...';
+        console.log('[speakMessage] Sending text to TextToSpeech service:', text.substring(0, 100) + '...');
+        // Send request to TextToSpeech service
+        const response = await fetch('/tts/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                text: text
+            })
+        });
+        console.log('[speakMessage] /tts/ response status:', response.status);
+        if (response.ok) {
+            const result = await response.json();
+            console.log('[speakMessage] /tts/ response result:', result);
+            if (result.audio_url) {
+                // Play the audio
+                await playAudio(result.audio_url, speakerBtn, messageId);
+                showSuccessNotification('🔊 Đang phát âm thanh', 'Tin nhắn đang được đọc bằng giọng nói từ FPT.AI.');
+            } else {
+                console.error('[speakMessage] No audio_url in result:', result);
+                throw new Error('Không thể tạo âm thanh: không có audio_url');
+            }
+        } else {
+            const errorData = await response.json().catch(() => null);
+            console.error('[speakMessage] /tts/ error response:', errorData);
+            throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error('[speakMessage] ❌ Text-to-speech error:', error);
+        // Reset button state
+        speakerBtn.classList.remove('loading', 'playing');
+        speakerBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        speakerBtn.title = 'Đọc tin nhắn';
+        showErrorNotification(
+            '❌ <strong>Lỗi Text-to-Speech:</strong>',
+            `Không thể chuyển đổi văn bản thành giọng nói: ${error.message}<br><br>
+             💡 <strong>Các nguyên nhân có thể:</strong><br>
+             • FPT.AI API key chưa được cấu hình<br>
+             • Kết nối mạng không ổn định<br>
+             • Văn bản quá dài hoặc chứa ký tự đặc biệt<br>
+             • Service FPT.AI tạm thời không khả dụng`
+        );
+        // Fallback to browser's built-in speech synthesis
+        fallbackToBuiltInTTS(text, speakerBtn);
+    }
+}
+
+async function playAudio(audioUrl, speakerBtn, messageId) {
+    return new Promise((resolve, reject) => {
+        // Create audio element
+        const audio = new Audio(audioUrl);
+        currentAudio = audio;
+        
+        // Update button state to playing
+        speakerBtn.classList.remove('loading');
+        speakerBtn.classList.add('playing');
+        speakerBtn.innerHTML = '<i class="fas fa-stop"></i>';
+        speakerBtn.title = 'Dừng phát';
+        
+        // Add click listener to stop playback
+        const stopHandler = () => {
+            stopCurrentSpeech();
+        };
+        speakerBtn.removeEventListener('click', stopHandler); // Remove any existing listeners
+        speakerBtn.addEventListener('click', stopHandler);
+        
+        // Audio event handlers
+        audio.onloadstart = () => {
+            console.log('🔊 Audio loading started');
+        };
+        
+        audio.oncanplay = () => {
+            console.log('🔊 Audio can start playing');
+        };
+        
+        audio.onplay = () => {
+            console.log('🔊 Audio playback started');
+        };
+        
+        audio.onended = () => {
+            console.log('🔊 Audio playback finished');
+            resetSpeakerButton(speakerBtn);
+            currentAudio = null;
+            resolve();
+        };
+        
+        audio.onerror = (e) => {
+            console.error('🔊 Audio playback error:', e);
+            resetSpeakerButton(speakerBtn);
+            currentAudio = null;[speakMessage]
+            reject(new Error('Audio playback failed'));
+        };
+        
+        // Start playback
+        audio.play().catch(error => {
+            console.error('🔊 Failed to start audio playback:', error);
+            resetSpeakerButton(speakerBtn);
+            currentAudio = null;
+            reject(error);
+        });
+    });
+}
+
+function stopCurrentSpeech() {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+        
+        // Reset all playing speaker buttons
+        document.querySelectorAll('.speaker-btn.playing').forEach(btn => {
+            resetSpeakerButton(btn);
+        });
+        
+        console.log('🔊 Speech stopped');
+    }
+    
+    // Also stop browser's built-in speech synthesis
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+function resetSpeakerButton(speakerBtn) {
+    speakerBtn.classList.remove('loading', 'playing');
+    speakerBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    speakerBtn.title = 'Đọc tin nhắn';
+    
+    // Remove stop event listener and restore speak functionality
+    const messageId = speakerBtn.closest('.message').id;
+    speakerBtn.setAttribute('onclick', `speakMessage('${messageId}')`);
+}
+
+// Fallback to browser's built-in Text-to-Speech
+function fallbackToBuiltInTTS(text, speakerBtn) {
+    if ('speechSynthesis' in window) {
+        try {
+            // Stop any ongoing speech
+            window.speechSynthesis.cancel();
+            
+            // Create utterance
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // Try to find Vietnamese voice
+            const voices = window.speechSynthesis.getVoices();
+            const vietnameseVoice = voices.find(voice => 
+                voice.lang.startsWith('vi') || 
+                voice.name.toLowerCase().includes('vietnamese') ||
+                voice.name.toLowerCase().includes('vietnam')
+            );
+            
+            if (vietnameseVoice) {
+                utterance.voice = vietnameseVoice;
+                utterance.lang = 'vi-VN';
+            } else {
+                utterance.lang = 'en-US'; // Fallback to English
+            }
+            
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            
+            // Event handlers
+            utterance.onstart = () => {
+                speakerBtn.classList.add('playing');
+                speakerBtn.innerHTML = '<i class="fas fa-stop"></i>';
+                speakerBtn.title = 'Dừng phát (Browser TTS)';
+                console.log('🔊 Browser TTS started');
+            };
+            
+            utterance.onend = () => {
+                resetSpeakerButton(speakerBtn);
+                console.log('🔊 Browser TTS finished');
+            };
+            
+            utterance.onerror = (event) => {
+                resetSpeakerButton(speakerBtn);
+                console.error('🔊 Browser TTS error:', event);
+                showErrorNotification('❌ TTS Error', 'Không thể sử dụng Text-to-Speech của trình duyệt');
+            };
+            
+            // Start speech
+            window.speechSynthesis.speak(utterance);
+            showInfoNotification(
+                '🔊 <strong>Sử dụng TTS của trình duyệt</strong>',
+                'Đang sử dụng Text-to-Speech tích hợp của trình duyệt thay thế.'
+            );
+        } catch (error) {
+            console.error('🔊 Browser TTS fallback failed:', error);
+            resetSpeakerButton(speakerBtn);
+            showErrorNotification('❌ Không sử dụng được TextToSpeech', 'Trình duyệt không hỗ trợ hoặc đã chặn Text-to-Speech.');
+        }
+    } else {
+        resetSpeakerButton(speakerBtn);
+        showErrorNotification('❌ Không sử dụng được TextToSpeech', 'Trình duyệt này không hỗ trợ hoặc đã chặn Text-to-Speech.');
+    }
+}
+
+// Test TextToSpeech service connection
+async function testTextToSpeech() {
+    try {
+        showInfoNotification('🔊 Đang kiểm tra TextToSpeech service...', 'Vui lòng chờ một chút');
+        
+        // Test with a simple Vietnamese text
+        const response = await fetch('/tts/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                text: 'Chào mừng bạn đến với WoxionChat. Hệ thống Text-to-Speech đang hoạt động bình thường.'
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Không thể kết nối đến dịch vụ TextToSpeech');
+        }
+        const result = await response.json();
+        if (!result || !result.audio_url) {
+            throw new Error('Dịch vụ TextToSpeech không trả về audio hợp lệ');
+        }
+        showSuccessNotification('✅ TextToSpeech hoạt động bình thường!', 'Bạn có thể sử dụng chức năng chuyển văn bản thành giọng nói.');
+    } catch (error) {
+        console.error('❌ Lỗi TextToSpeech:', error);
+        showErrorNotification('❌ Không sử dụng được TextToSpeech', error.message || 'Không thể kết nối hoặc dịch vụ không khả dụng.');
+    }
+}
+
+// === STUDIO TAB SYSTEM ===
+
+// Switch between studio tabs
+function switchStudioTab(tabName) {
+    // Remove active class from all tabs and content
+    document.querySelectorAll('.studio-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.studio-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Add active class to selected tab and content
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(tabName + 'Tab').classList.add('active');
+    
+    // Update saved messages display when switching to saved tab
+    if (tabName === 'saved') {
+        updateStudioSavedMessages();
+    }
+}
+
+// === SAVED MESSAGES FUNCTIONS ===
+
+// Toggle pin status for a message
+function toggleMessagePin(messageId) {
+    const messageDiv = document.getElementById(messageId);
+    const pinBtn = messageDiv.querySelector('.pin-btn');
+    
+    if (!messageDiv || !pinBtn) {
+        console.error('Message or pin button not found:', messageId);
+        return;
+    }
+    
+    const isPinned = pinBtn.classList.contains('pinned');
+    
+    if (isPinned) {
+        // Unpin the message
+        unpinMessage(messageId);
+    } else {
+        // Pin the message
+        pinMessage(messageId);
+    }
+}
+
+// Pin a message
+function pinMessage(messageId) {
+    const messageDiv = document.getElementById(messageId);
+    const pinBtn = messageDiv.querySelector('.pin-btn');
+    const content = messageDiv.querySelector('.message-content').innerHTML;
+    const cleanText = messageDiv.getAttribute('data-text');
+    const timeString = messageDiv.querySelector('.message-time').textContent;
+    
+    // Create saved message object
+    const savedMessage = {
+        id: messageId,
+        content: content,
+        cleanText: cleanText,
+        timestamp: new Date().toISOString(),
+        displayTime: timeString
+    };
+    
+    // Get existing saved messages
+    const savedMessages = getSavedMessages();
+    
+    // Add new message if not already saved
+    if (!savedMessages.find(msg => msg.id === messageId)) {
+        savedMessages.push(savedMessage);
+        localStorage.setItem('studio_saved_messages', JSON.stringify(savedMessages));
+        
+        // Update button state
+        pinBtn.classList.add('pinned');
+        pinBtn.title = 'Bỏ ghim tin nhắn';
+        
+        // Update studio display
+        updateStudioSavedMessages();
+        updateStudioSavedCounter();
+        
+        // Show notification
+        showSuccessNotification('📌 Đã ghim tin nhắn!', 'Tin nhắn đã được lưu vào Studio.');
+        
+        console.log('📌 Message pinned:', messageId);
+    }
+}
+
+// Unpin a message
+function unpinMessage(messageId) {
+    const messageDiv = document.getElementById(messageId);
+    const pinBtn = messageDiv.querySelector('.pin-btn');
+    
+    // Get existing saved messages
+    const savedMessages = getSavedMessages();
+    
+    // Remove message from saved list
+    const updatedMessages = savedMessages.filter(msg => msg.id !== messageId);
+    localStorage.setItem('studio_saved_messages', JSON.stringify(updatedMessages));
+    
+    // Update button state
+    pinBtn.classList.remove('pinned');
+    pinBtn.title = 'Ghim tin nhắn';
+    
+    // Update studio display
+    updateStudioSavedMessages();
+    updateStudioSavedCounter();
+    
+    // Show notification
+    showInfoNotification('📌 Đã bỏ ghim tin nhắn!', 'Tin nhắn đã được xóa khỏi Studio.');
+    
+    console.log('📌 Message unpinned:', messageId);
+}
+
+// Get saved messages from localStorage
+function getSavedMessages() {
+    try {
+        const savedMessages = localStorage.getItem('studio_saved_messages');
+        return savedMessages ? JSON.parse(savedMessages) : [];
+    } catch (error) {
+        console.error('Error loading saved messages:', error);
+        return [];
+    }
+}
+
+// Update studio saved messages display
+function updateStudioSavedMessages() {
+    const studioSavedMessages = document.getElementById('studioSavedMessages');
+    const savedMessages = getSavedMessages();
+    
+    if (savedMessages.length === 0) {
+        studioSavedMessages.innerHTML = `
+            <div class="studio-empty-state">
+                <i class="fas fa-thumbtack"></i>
+                <p>Chưa có tin nhắn nào được ghim</p>
+                <small>Nhấp vào biểu tượng ghim 📌 ở tin nhắn bot để lưu lại</small>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort messages by timestamp (newest first)
+    savedMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    studioSavedMessages.innerHTML = savedMessages.map(msg => `
+        <div class="studio-saved-item">
+            <div class="studio-saved-time">
+                <i class="fas fa-clock"></i> ${msg.displayTime} - ${formatDate(msg.timestamp)}
+            </div>
+            <div class="studio-saved-content">${msg.content}</div>
+            <div class="studio-saved-actions">
+                <button class="btn-copy" onclick="copyStudioSavedMessage('${msg.id}')" title="Sao chép">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button class="btn-delete" onclick="removeStudioSavedMessage('${msg.id}')" title="Xóa">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Update saved messages counter
+function updateStudioSavedCounter() {
+    const savedMessages = getSavedMessages();
+    const counter = document.getElementById('studioSavedCounter');
+    const clearBtn = document.querySelector('.studio-clear-btn');
+    
+    if (savedMessages.length > 0) {
+        counter.textContent = savedMessages.length;
+        counter.style.display = 'inline-block';
+        clearBtn.disabled = false;
+    } else {
+        counter.style.display = 'none';
+        clearBtn.disabled = true;
+    }
+}
+
+// Copy saved message to clipboard
+function copyStudioSavedMessage(messageId) {
+    const savedMessages = getSavedMessages();
+    const message = savedMessages.find(msg => msg.id === messageId);
+    
+    if (message) {
+        const textToCopy = message.cleanText || message.content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            showSuccessNotification('📋 Đã sao chép tin nhắn!', 'Nội dung tin nhắn đã được sao chép vào clipboard.');
+        }).catch(error => {
+            console.error('Failed to copy text:', error);
+            showErrorNotification('❌ Không thể sao chép', 'Trình duyệt không hỗ trợ hoặc đã chặn chức năng sao chép.');
+        });
+    }
+}
+
+// Remove saved message
+function removeStudioSavedMessage(messageId) {
+    const savedMessages = getSavedMessages();
+    const updatedMessages = savedMessages.filter(msg => msg.id !== messageId);
+    localStorage.setItem('studio_saved_messages', JSON.stringify(updatedMessages));
+    
+    // Update button state in chat if message still exists
+    const messageDiv = document.getElementById(messageId);
+    if (messageDiv) {
+        const pinBtn = messageDiv.querySelector('.pin-btn');
+        if (pinBtn) {
+            pinBtn.classList.remove('pinned');
+            pinBtn.title = 'Ghim tin nhắn';
+        }
+    }
+    
+    // Update studio display
+    updateStudioSavedMessages();
+    updateStudioSavedCounter();
+    
+    showInfoNotification('🗑️ Đã xóa tin nhắn khỏi Studio!');
+}
+
+// Clear all saved messages
+function clearAllSavedMessages() {
+    if (confirm('Bạn có chắc muốn xóa tất cả tin nhắn đã ghim?')) {
+        localStorage.removeItem('studio_saved_messages');
+        
+        // Reset all pin buttons in chat
+        document.querySelectorAll('.pin-btn.pinned').forEach(btn => {
+            btn.classList.remove('pinned');
+            btn.title = 'Ghim tin nhắn';
+        });
+        
+        // Update studio display
+        updateStudioSavedMessages();
+        updateStudioSavedCounter();
+        
+        showInfoNotification('🗑️ Đã xóa tất cả tin nhắn đã ghim!');
+    }
+}
+
+// Initialize saved messages on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize saved messages counter
+    updateStudioSavedCounter();
+    
+    // Update pin button states for existing messages
+    const savedMessages = getSavedMessages();
+    savedMessages.forEach(msg => {
+        const messageDiv = document.getElementById(msg.id);
+        if (messageDiv) {
+            const pinBtn = messageDiv.querySelector('.pin-btn');
+            if (pinBtn) {
+                pinBtn.classList.add('pinned');
+                pinBtn.title = 'Bỏ ghim tin nhắn';
+            }
+        }
+    });
+    
+    console.log('📌 Studio saved messages initialized:', savedMessages.length, 'messages');
+});
+
+// Keyboard shortcuts for studio
+document.addEventListener('keydown', function(event) {
+    // Ctrl+Shift+S to switch to saved messages tab
+    if (event.ctrlKey && event.shiftKey && event.key === 'S') {
+        event.preventDefault();
+        switchStudioTab('saved');
+    }
+    
+    // Ctrl+Shift+N to switch to notes tab
+    if (event.ctrlKey && event.shiftKey && event.key === 'N') {
+        event.preventDefault();
+        switchStudioTab('notes');
+    }
+    
+    // Ctrl+Shift+C to clear all saved messages
+    if (event.ctrlKey && event.shiftKey && event.key === 'C') {
+        event.preventDefault();
+        clearAllSavedMessages();
+    }
+});
+document.addEventListener('DOMContentLoaded', fetchNotes);
+
+// New function to add bot messages with typewriter effect
+function addBotMessageWithTypewriter(content) {
+    const chatBody = document.getElementById('chatBody');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message bot';
+    
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    
+    // Generate unique ID for this message
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    messageDiv.id = messageId;
+    
+    // Process content
+    let processedContent = content;
+    let cleanText = content;
+    
+    // Check if content looks like Markdown
+    if (isMarkdownContent(content)) {
+        try {
+            // Configure marked.js for safe rendering
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                sanitize: false,
+                smartLists: true,
+                smartypants: true
+            });
+            
+            // Convert Markdown to HTML
+            processedContent = marked.parse(content);
+            console.log('📝 Converted Markdown to HTML for bot message');
+        } catch (error) {
+            console.error('❌ Error parsing Markdown:', error);
+            // Fallback to original content if Markdown parsing fails
+            processedContent = content;
+        }
+    }
+    
+    // Extract clean text for TTS (remove HTML tags)
+    cleanText = processedContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    
+    // Create buttons for bot messages
+    const buttonsHtml = `
+        <button class="pin-btn" onclick="toggleMessagePin('${messageId}')" title="Ghim tin nhắn">
+            <i class="fas fa-thumbtack"></i>
+        </button>
+        <button class="speaker-btn" onclick="speakMessage('${messageId}')" title="Đọc tin nhắn">
+            <i class="fas fa-volume-up"></i>
+        </button>
+    `;
+    
+    // Create initial message structure with empty content
+    messageDiv.innerHTML = `
+        <div class="message-content" id="content-${messageId}"></div>
+        <div class="message-footer">
+            <div class="message-time" style="align-items: center;">${timeString}</div>
+            ${buttonsHtml}
+        </div>
+    `;
+    
+    // Store clean text as data attribute for TTS
+    messageDiv.setAttribute('data-text', cleanText);
+    
+    // Add to chat body
+    chatBody.appendChild(messageDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    
+    // Start typewriter effect
+    typewriterEffect(processedContent, `content-${messageId}`);
+}
+
+// Typewriter effect function
+function typewriterEffect(text, elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    // Add typing class to message container
+    const messageDiv = element.closest('.message');
+    if (messageDiv) {
+        messageDiv.classList.add('typing');
+    }
+    
+    let currentIndex = 0;
+    let currentText = '';
+    const speed = 20; // Speed in milliseconds (lower = faster)
+    const chatBody = document.getElementById('chatBody');
+    
+    function typeNext() {
+        if (currentIndex < text.length) {
+            currentText += text[currentIndex];
+            element.innerHTML = currentText + '<span class="typewriter-cursor">|</span>';
+            
+            // Auto-scroll to bottom while typing
+            chatBody.scrollTop = chatBody.scrollHeight;
+            
+            currentIndex++;
+            setTimeout(typeNext, speed);
+        } else {
+            // Animation completed - remove cursor and typing class
+            element.innerHTML = text;
+            if (messageDiv) {
+                messageDiv.classList.remove('typing');
+            }
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+    }
+    
+    typeNext();
+}
+
+// Enhanced function to add messages with typewriter effect for bot messages
+function addMessageWithTypewriter(content, type) {
+    if (type === 'bot') {
+        addBotMessageWithTypewriter(content);
+    } else {
+        addMessage(content, type);
+    }
+}
+
+// New function to search data
+function searchData() {
+    // Add your search logic here
+    console.log('Searching data...');
+}
+
+// New function to test typewriter effect
+function testTypewriter() {
+    // Add your typewriter test logic here
+    console.log('Testing typewriter effect...');
+}
+
+</script>
+ 
+ {% endblock %}

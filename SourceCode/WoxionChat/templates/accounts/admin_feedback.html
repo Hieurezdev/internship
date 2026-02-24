@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Quản lý Feedback</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 150px;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .feedback-list {
+            padding: 20px;
+        }
+        .feedback-item {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .feedback-item:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .feedback-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .feedback-header:hover {
+            background: #e9ecef;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .feedback-meta {
+            text-align: right;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .feedback-content {
+            padding: 20px;
+            display: none;
+            background: white;
+        }
+        .feedback-content.expanded {
+            display: block;
+        }
+        .answer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .answer-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+        .answer-label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .answer-value {
+            color: #6c757d;
+        }
+        .rating-display {
+            display: inline-flex;
+            gap: 2px;
+        }
+        .star {
+            color: #ffc107;
+        }
+        .nav-buttons {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0 10px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        .empty-state h3 {
+            margin-bottom: 15px;
+        }
+        .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+        .toggle-icon.expanded {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Quản lý Feedback Chatbot</h1>
+            <p>Xin chào Admin {{ user.first_name }} {{ user.last_name }}</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_feedbacks }}</div>
+                <div class="stat-label">Tổng Feedback</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avg-rating">-</div>
+                <div class="stat-label">Đánh giá TB</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="completion-rate">-</div>
+                <div class="stat-label">Tỷ lệ hoàn thành</div>
+            </div>
+        </div>
+
+        <div class="feedback-list">
+            {% if feedbacks %}
+                {% for feedback in feedbacks %}
+                <div class="feedback-item">
+                    <div class="feedback-header" onclick="toggleFeedback('{{ feedback._id }}')">
+                        <div class="user-info">
+                            <div class="user-avatar">
+                                {{ feedback.username|first|upper }}
+                            </div>
+                            <div>
+                                <strong>{{ feedback.username }}</strong>
+                                <br>
+                                <small>{{ feedback.user_info.first_name }} {{ feedback.user_info.last_name }}</small>
+                            </div>
+                        </div>
+                        <div class="feedback-meta">
+                            <div>{{ feedback.timestamp }}</div>
+                            <div>Session: {{ feedback.session_id|truncatechars:15 }}</div>
+                            <div class="toggle-icon" id="icon-{{ feedback._id }}">▼</div>
+                        </div>
+                    </div>
+                    <div class="feedback-content" id="content-{{ feedback._id }}">
+                        <div class="answer-grid">
+                            {% for key, value in feedback.items %}
+                                {% if key not in 'user_id,username,session_id,timestamp,user_info,_id' %}
+                                <div class="answer-item">
+                                    <div class="answer-label">{{ key|title }}</div>
+                                    <div class="answer-value">
+                                        {% if value|length_is:1 and value.isdigit %}
+                                            <span class="rating-display">
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= value|add:0 %}
+                                                        <span class="star">★</span>
+                                                    {% else %}
+                                                        <span>☆</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                                ({{ value }}/5)
+                                            </span>
+                                        {% else %}
+                                            {{ value }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>📭 Chưa có feedback nào</h3>
+                    <p>Khi người dùng gửi feedback, chúng sẽ hiển thị ở đây.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="nav-buttons">
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary">⬅️ Quay về Admin Dashboard</a>
+            <a href="{% url 'feedback' %}" class="btn">📝 Xem Feedback Form</a>
+            <button class="btn" onclick="exportFeedback()">📥 Xuất dữ liệu</button>
+        </div>
+    </div>
+
+    <script>
+        function toggleFeedback(feedbackId) {
+            const content = document.getElementById('content-' + feedbackId);
+            const icon = document.getElementById('icon-' + feedbackId);
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                icon.classList.remove('expanded');
+            } else {
+                content.classList.add('expanded');
+                icon.classList.add('expanded');
+            }
+        }
+
+        function exportFeedback() {
+            // Tạo CSV từ dữ liệu feedback
+            const feedbacks = {{ feedbacks|safe }};
+            if (feedbacks.length === 0) {
+                alert('Không có dữ liệu để xuất!');
+                return;
+            }
+
+            let csv = 'Username,Timestamp,Session ID,';
+            // Lấy tất cả các keys từ feedback đầu tiên
+            const firstFeedback = feedbacks[0];
+            Object.keys(firstFeedback).forEach(key => {
+                if (!['_id', 'user_info'].includes(key)) {
+                    csv += key + ',';
+                }
+            });
+            csv = csv.slice(0, -1) + '\n'; // Bỏ dấu phẩy cuối và xuống dòng
+
+            feedbacks.forEach(feedback => {
+                csv += `"${feedback.username}","${feedback.timestamp}","${feedback.session_id}",`;
+                Object.keys(firstFeedback).forEach(key => {
+                    if (!['_id', 'user_info'].includes(key)) {
+                        const value = feedback[key] || '';
+                        csv += `"${value}",`;
+                    }
+                });
+                csv = csv.slice(0, -1) + '\n';
+            });
+
+            // Download file
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'chatbot_feedback_' + new Date().toISOString().slice(0, 10) + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Tính toán thống kê
+        document.addEventListener('DOMContentLoaded', function() {
+            const feedbacks = {{ feedbacks|safe }};
+            
+            if (feedbacks.length > 0) {
+                // Tính rating trung bình
+                let totalRating = 0;
+                let ratingCount = 0;
+                
+                feedbacks.forEach(feedback => {
+                    if (feedback.overall_satisfaction) {
+                        totalRating += feedback.overall_satisfaction;
+                        ratingCount++;
+                    }
+                });
+                
+                if (ratingCount > 0) {
+                    const avgRating = (totalRating / ratingCount).toFixed(1);
+                    document.getElementById('avg-rating').textContent = avgRating;
+                }
+                
+                // Tính tỷ lệ hoàn thành (giả sử feedback hoàn chỉnh có ít nhất 5 câu trả lời)
+                const completeFeedbacks = feedbacks.filter(f => Object.keys(f).length > 10);
+                const completionRate = ((completeFeedbacks.length / feedbacks.length) * 100).toFixed(0);
+                document.getElementById('completion-rate').textContent = completionRate + '%';
+            }
+        });
+    </script>
+</body>
+</html> 

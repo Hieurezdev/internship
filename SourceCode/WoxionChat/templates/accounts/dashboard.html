@@ -1,0 +1,645 @@
+{% extends 'accounts/base.html' %}
+
+{% block title %}Dashboard - WoxionChat{% endblock %}
+
+{% block content %}
+<style>
+    body {
+            /* background: linear-gradient(-45deg, #c9fac0, #91e8ae, #78d3b9, #d5eef4) !important; */
+            min-height: 100vh;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+            color: #1f2937;
+            
+        }
+    
+    .dashboard-header {
+        background: rgb(255, 255, 255);
+        padding: 32px 40px;
+        margin-bottom: 32px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border: 1px solid #f1f5f9;
+        border-top: 4px solid #10a37f;
+        animation: fadeInScaleUp 0.6s ease-out;
+        transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+        border-radius: 10px;
+    }
+    
+    .dashboard-header:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.12);
+    }
+    
+    @keyframes fadeInScaleUp {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    .welcome-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: rgb(30,123,94);
+        margin-bottom: 8px;
+        letter-spacing: -0.02em;
+    }
+    
+    .welcome-subtitle {
+        color: #6b7280;
+        font-size: 1.1rem;
+        margin-bottom: 24px;
+        font-weight: 375;
+    }
+    
+    .user-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        border-radius: 20px;
+        color: white;
+        padding: 8px 16px;
+        font-weight: 375;
+        font: 'Inter';
+        font-size: 0.9rem;
+        border-top: 4px solid #10a37f;
+    }
+    
+    .action-card {
+        background: white;
+        padding: 32px 24px;
+        text-align: center;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #f1f5f9;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+        animation: fadeInScaleUp 0.6s ease-out;
+        border-radius: 10px;
+        border-top: 4px solid #10a37f;
+        font-weight: 375;
+    }
+
+    @keyframes fadeInScaleUp {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    .action-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.5s;
+    }
+    
+    .action-card:hover::before {
+        left: 100%;
+    }
+    
+    .action-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+    }
+    
+    .action-icon {
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 2rem;
+        color: white;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+    }
+    
+    .action-icon.profile { background: linear-gradient(135deg, #059669, #047857); }
+    .action-icon.admin { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+    .action-icon.info { background: linear-gradient(135deg, #16a34a, #15803d); }
+    .action-icon.chat { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    
+    .action-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: rgb(30,123,94);
+        margin-bottom: 12px;
+    }
+    
+    .action-description {
+        color: #6b7280;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        margin-bottom: 20px;
+    }
+    
+    .action-btn {
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        border-radius: 20px;
+        color: white;
+        padding: 12px 24px;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+    }
+    
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(16, 163, 127, 0.3);
+        color: white;
+    }
+    
+    .action-btn.btn-green {
+        background: linear-gradient(135deg, #059669, #047857);
+    }
+    
+    .action-btn.btn-green:hover {
+        box-shadow: 0 8px 20px rgba(5, 150, 105, 0.3);
+    }
+    
+    .action-btn.btn-red {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+    }
+    
+    .action-btn.btn-red:hover {
+        box-shadow: 0 8px 20px rgba(220, 38, 38, 0.3);
+    }
+    
+    .action-btn.btn-emerald {
+        background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+    
+    .action-btn.btn-emerald:hover {
+        box-shadow: 0 8px 20px rgba(22, 163, 74, 0.3);
+    }
+    
+    .info-section {
+        background: white;
+        padding: 32px;
+        margin-top: 32px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        animation: slideInUp 0.8s ease-out 0.4s both;
+        border: 1px solid #f1f5f9;
+        border-radius: 10px;
+        border-top: 4px solid #10a37f;
+
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 500;
+        color: #374151;
+    }
+    
+    .info-value {
+        color: #6b7280;
+        font-weight: 375;
+        font: 'Inter';
+    }
+    
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .role-badge.admin {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        color: white;
+    }
+    
+    .role-badge.user {
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        color: white;
+    }
+    
+    .user-card {
+        background: linear-gradient(135deg, #1f2937, #374151);
+        color: white;
+        padding: 32px;
+        margin-bottom: 32px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .user-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+        animation: shimmer 3s infinite;
+    }
+    
+    .connection-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 32px;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 24px;
+        text-align: center;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease;
+        animation: slideInUp 0.8s ease-out both;
+        border: 1px solid #f1f5f9;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-4px);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #10a37f;
+        margin-bottom: 8px;
+    }
+    
+    .stat-label {
+        color: #6b7280;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .quick-actions {
+        background: white;
+        padding: 32px;
+        margin-top: 32px;
+        animation: slideInUp 0.8s ease-out 0.8s both;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border: 1px solid #f1f5f9;
+        border-radius: 10px;
+        border-top: 4px solid #10a37f;
+    }
+    
+    .quick-actions h3 {
+        color: rgb(30,123,94);
+        font-weight: 600;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .quick-btn {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: #374151;
+        padding: 16px 24px;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.3s ease;
+        margin-bottom: 12px;
+        font-weight: 500;
+    }
+    
+    .quick-btn:hover {
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        color: white;
+        transform: translateX(8px);
+        border-color: #10a37f;
+    }
+    
+    .quick-btn i {
+        width: 20px;
+        text-align: center;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            padding: 24px 20px;
+        }
+        
+        .welcome-title {
+            font-size: 2rem;
+        }
+        
+        .action-card {
+            padding: 24px 20px;
+        }
+        
+        .info-section,
+        .quick-actions {
+            padding: 24px 20px;
+        }
+    }
+    
+    /* Animation delays */
+    .action-card:nth-child(1) { animation-delay: 0.2s; }
+    .action-card:nth-child(2) { animation-delay: 0.3s; }
+    .action-card:nth-child(3) { animation-delay: 0.4s; }
+    .action-card:nth-child(4) { animation-delay: 0.5s; }
+    
+    .stat-card:nth-child(1) { animation-delay: 0.6s; }
+    .stat-card:nth-child(2) { animation-delay: 0.7s; }
+    .stat-card:nth-child(3) { animation-delay: 0.8s; }
+    .stat-card:nth-child(4) { animation-delay: 0.9s; }
+</style>
+
+<div class="container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="welcome-title">
+                    <i class="fas fa-tachometer-alt me-3"></i>Dashboard
+                </h1>
+                <p class="welcome-subtitle">
+                    Xin chào <strong>{{ user.first_name }} {{ user.last_name }}</strong>, chào mừng bạn quay trở lại!
+                </p>
+                <div class="user-badge">
+                    {% if user.is_admin %}
+                        <i class="fas fa-crown"></i>
+                    {% else %}
+                        <i class="fas fa-user"></i>
+                    {% endif %}
+                    {{ user.get_role_display }}
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="d-flex flex-column align-items-end">
+                    <small class="text-muted">Trạng thái hệ thống</small>
+                    <span class="connection-status">
+                        <i class="fas fa-check-circle" style="color: #10a37f;"></i>
+                        Online
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Actions Grid -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="action-card">
+                <div class="action-icon profile">
+                    <i class="fas fa-user-edit"></i>
+                </div>
+                <h4 class="action-title">Hồ sơ cá nhân</h4>
+                <p class="action-description">
+                    Quản lý và cập nhật thông tin tài khoản của bạn
+                </p>
+                <a href="{% url 'profile' %}" class="action-btn btn-green">
+                    <i class="fas fa-edit"></i>
+                    Chỉnh sửa
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="action-card">
+                <div class="action-icon chat">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h4 class="action-title">AI Chat</h4>
+                <p class="action-description">
+                    Trò chuyện với AI thông minh, hỗ trợ OCR và nhiều tính năng nâng cao
+                </p>
+                <a href="{% url 'chat_advanced' %}" class="action-btn">
+                    <i class="fas fa-magic"></i>
+                    Bắt đầu Chat
+                </a>
+            </div>
+        </div>
+        
+        {% if user.is_admin %}
+        <div class="col-lg-3 col-md-6">
+            <div class="action-card">
+                <div class="action-icon admin">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <h4 class="action-title">Quản lý Users</h4>
+                <p class="action-description">
+                    Xem và quản lý tất cả người dùng trong hệ thống
+                </p>
+                <a href="{% url 'users_management' %}" class="action-btn btn-red">
+                    <i class="fas fa-cogs"></i>
+                    Quản lý
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="action-card">
+                <div class="action-icon admin">
+                    <i class="fas fa-crown"></i>
+                </div>
+                <h4 class="action-title">Admin Dashboard</h4>
+                <p class="action-description">
+                    Truy cập bảng điều khiển quản trị viên
+                </p>
+                <a href="{% url 'admin_dashboard' %}" class="action-btn btn-red">
+                    <i class="fas fa-shield-alt"></i>
+                    Admin Panel
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-lg-3 col-md-6">
+            <div class="action-card">
+                <div class="action-icon info">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <h4 class="action-title">Hệ thống Bot</h4>
+                <p class="action-description">
+                    Thông tin về platform WoxionChat
+                </p>
+                <div class="action-btn btn-emerald" style="opacity: 0.7; cursor: not-allowed;">
+                    <i class="fas fa-clock"></i>
+                    Sắp ra mắt
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="action-card">
+                <div class="action-icon info">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <h4 class="action-title">Feedback</h4>
+                <p class="action-description">
+                    Gửi ý kiến phản hồi về hệ thống
+                </p>
+                <a href="{% url 'feedback' %}" class="action-btn btn-emerald">
+                    <i class="fas fa-comment-alt"></i>
+                    Gửi feedback
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- User Information Section -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="info-section">
+                <h3 style="color: rgb(30,123,94); font-weight: 600; margin-bottom: 24px;">
+                    <i class="fas fa-user me-2"></i>Thông tin tài khoản
+                </h3>
+                
+                <div class="info-item">
+                    <span class="info-label">Tên đăng nhập</span>
+                    <span class="info-value">{{ user.username }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Email</span>
+                    <span class="info-value">{{ user.email }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Họ và tên</span>
+                    <span class="info-value">{{ user.first_name }} {{ user.last_name }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Vai trò</span>
+                    <span class="role-badge {% if user.is_admin %}admin{% else %}user{% endif %}">
+                        {% if user.is_admin %}
+                            <i class="fas fa-crown"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                        {{ user.get_role_display }}
+                    </span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Ngày tham gia</span>
+                    <span class="info-value">{{ user.date_joined|date:"d/m/Y H:i" }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Lần cuối online</span>
+                    <span class="info-value">
+                        {% if user.last_login %}
+                            {{ user.last_login|date:"d/m/Y H:i" }}
+                        {% else %}
+                            Chưa đăng nhập
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3>
+                    <i class="fas fa-bolt"></i>
+                    Thao tác nhanh
+                </h3>
+                
+                <a href="{% url 'chat_advanced' %}" class="quick-btn">
+                    <i class="fas fa-comment"></i>
+                    Chat AI
+                </a>
+                
+                <a href="{% url 'profile' %}" class="quick-btn">
+                    <i class="fas fa-user-edit"></i>
+                    Chỉnh sửa profile
+                </a>
+                
+                {% if user.is_admin %}
+                <a href="{% url 'users_management' %}" class="quick-btn">
+                    <i class="fas fa-users"></i>
+                    Quản lý users
+                </a>
+                {% endif %}
+                
+                <a href="{% url 'logout' %}" class="quick-btn" style="color: #ef4444;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Đăng xuất
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Admin Stats -->
+    {% if user.is_admin %}
+    <div class="stats-grid">
+        <div class="col-6 col-md-3">
+            <div class="stat-item">
+                <div class="stat-number">{{ total_users }}</div>
+                <div class="stat-label">Tổng người dùng</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-item">
+                <div class="stat-number">{{ active_sessions|default:0 }}</div>
+                <div class="stat-label">Phiên hoạt động</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-item">
+                <div class="stat-number">
+                    <i class="fas fa-check-circle" style="color: #10a37f;"></i>
+                </div>
+                <div class="stat-label">Hệ thống</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-item">
+                <div class="stat-number">
+                    <i class="fas fa-check-circle" style="color: #10a37f;"></i>
+                </div>
+                <div class="stat-label">Online</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

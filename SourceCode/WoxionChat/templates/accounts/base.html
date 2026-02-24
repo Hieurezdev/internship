@@ -1,0 +1,2112 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}WoxionChat{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Inter font for ChatGPT style -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(rgba(192, 255, 209, 0.498), rgba(202, 255, 233, 0.736)), url('{% static "images/nen.jpg" %}') center/cover no-repeat fixed;
+            background-color: rgb(230, 230, 230); /* Fallback color */
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+            color: #1f2937;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #ffffff) !important;
+            box-shadow: 0 2px 20px rgba(8, 133, 102, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1030;
+            position: relative;
+            transition: all 0.3s ease;
+            padding: 12px 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .navbar.collapsed {
+            background: linear-gradient(135deg, #ffffff) !important;
+            box-shadow: 0 2px 15px rgba(255, 255, 255, 0.15);
+            padding: 6px 0;
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: rgb(30, 123, 94) !important;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .navbar.collapsed .navbar-brand {
+            font-size: 1.3rem;
+        }
+        
+        .navbar-brand:hover {
+            color: rgb(30, 123, 94) !important;
+        }
+        
+        .navbar-logo {
+            height: 40px;
+            width: auto;
+            border-radius: 12px;
+            transition: transform 0.3s ease;
+        }
+        
+        .navbar.collapsed .navbar-logo {
+            height: 32px;
+        }
+        
+        .navbar-logo:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Navbar Toggle Button */
+        .navbar-collapse-toggle {
+            background: #ffffff;
+            border: 1px solid rgb(255, 255, 255);
+            color: rgb(30, 123, 94);
+            /* padding: 8px 12px; */
+            font-size: 0.9rem;
+            font-weight: 300;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-right: 16px;
+            margin-left: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+        }
+        
+        .navbar-collapse-toggle:hover {
+            background: rgba(33, 127, 21, 0.2);
+            /* border-color: rgba(255, 255, 255, 0.3); */
+            transform: translateY(-1px);
+            /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); */
+        }
+        
+        .navbar-collapse-toggle i {
+            transition: transform 0.3s ease;
+        }
+        
+        .navbar-collapse-toggle.collapsed i {
+            transition: width 0.3s ease;
+        }
+        
+        /* .navbar-nav {
+            transition: all 0.4s ease;
+        } */
+        
+        .navbar-nav.collapsed {
+            max-height: 45px;
+            opacity: 1;
+            transform: translateY(0);
+            margin: 0;
+            padding: 0;
+            overflow: visible !important;
+        }
+        
+        .navbar-nav.collapsed .nav-link {
+            padding: 6px 10px !important;
+            margin: 0 1px;
+            min-width: 36px;
+            text-align: center;
+            position: relative;
+            font-size: 0.9rem;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            display: inline-block; /* Giúp padding và margin hoạt động đúng */
+            padding-bottom: 5px; /* Tạo khoảng cách giữa chữ và đường gạch chân */
+            text-decoration: none; /* Bỏ gạch chân mặc định của thẻ a */
+            color: black; /* Màu chữ */
+            
+            /* Tạo một đường viền "vô hình" để không bị giật layout khi hover */
+            border-bottom: 2px solid transparent; 
+            
+            /* Thêm hiệu ứng chuyển động mượt mà */
+            transition: border-color 0.3s ease-in-out;
+        }
+        
+        .navbar-nav.collapsed .nav-link:hover {
+            border-color: rgb(255, 255, 255); 
+        }
+
+        .navbar-nav.collapsed .nav-link span,
+        .navbar-nav.collapsed .nav-link .dropdown-toggle::after {
+            display: none;
+        }
+        
+        .navbar-nav.collapsed .dropdown {
+            position: static;
+        }
+        
+        .navbar-nav.collapsed .dropdown-menu {
+            position: absolute !important;
+            top: 100% !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            margin-top: 8px !important;
+            z-index: 9999 !important;
+            display: none;
+        }
+        
+        .navbar-nav.collapsed .dropdown-menu.show {
+            display: block !important;
+        }
+        
+        .navbar-nav.collapsed .nav-link {
+            pointer-events: auto !important;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .navbar-nav.collapsed .dropdown-toggle {
+            pointer-events: auto !important;
+        }
+        
+        .navbar-nav.collapsed .nav-link::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: -32px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.8);
+            color: rgb(30, 123, 94);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 400;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            /* transition: opacity 0.3s ease; */
+            z-index: 1000;
+        }
+        
+        .navbar-nav.collapsed .nav-link:hover::after {
+            opacity: 1;
+        }
+        
+        .navbar-nav.expanded {
+            max-height: 500px;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .navbar-nav .nav-link {
+            color: rgb(30, 123, 94) !important;
+            font-weight: 500;
+            padding: 12px 16px !important;
+            border-radius: 8px;
+            /* transition: all 0.3s ease; */
+            margin: 0 4px;
+            cursor: pointer;
+            text-decoration: none;
+            position: relative;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+
+        .navbar-nav .nav-link::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: rgb(30, 123, 94);
+            transition: width 0.3s ease;
+        }
+
+        .navbar-nav .nav-link:hover::before {
+            width: 100%;
+        }
+
+                
+        /* .navbar-nav .nav-link:hover {
+            color: rgb(30, 123, 94) !important;
+            background: transparent;
+            text-decoration: none;
+        } */
+
+
+        /* .navbar-nav .nav-link.active {
+            color: white !important;
+            background: rgba(255, 255, 255, 0.15);
+        } */
+        
+        .dropdown-menu {
+            background: white;
+            border: none;
+            border-radius: 2px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            /* border: 1px solid rgba(0, 0, 0, 0.05); */
+            /* padding: 8px; */
+            /* margin-top: 8px; */
+            /* z-index: 9999 !important; */
+            /* position: absolute !important; */
+        }
+        
+        .dropdown-item {
+            /* border-radius: 8px; */
+            padding: 12px 16px;
+            font-weight: 375;
+            color: #374151;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .dropdown-item:hover {
+            color: #f8fafc;
+            background: rgb(30, 123, 94);
+        }
+        
+        .dropdown-item i {
+            width: 16px;
+            text-align: center;
+        }
+        
+        .dropdown-divider {
+            border-color: #e5e7eb;
+            margin: 8px 0;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            background: white;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .card:hover {
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #10a37f, #15b887);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(16, 163, 127, 0.2);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #0d8f69, #12a374);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 163, 127, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #374151;
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .btn-secondary:hover {
+            background: #10a37f;
+            border-color: #10a37f;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .form-control {
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+            background: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .form-control:focus {
+            border-color: #10a37f;
+            box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.1);
+            background: #ffffff;
+        }
+        
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 16px 20px;
+            font-weight: 500;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .alert-success {
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #166534;
+            border-left: 4px solid #22c55e;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, #fef2f2, #fecaca);
+            color: #dc2626;
+            border-left: 4px solid #ef4444;
+        }
+        
+        .alert-info {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            color: #1d4ed8;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .alert-warning {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #d97706;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .badge {
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-weight: 500;
+            font-size: 0.8rem;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        .bg-info {
+            background: linear-gradient(135deg, #10a37f, #15b887) !important;
+        }
+        
+        /* Content area styling */
+        main.container {
+            background: transparent;
+            min-height: 100vh;
+            width: 100vw;
+            max-width: 100%;
+            margin: 0;
+            padding: 20px 20px 20px 20px;
+            box-sizing: border-box;
+            margin-left: 0;
+            margin-right: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+        
+        /* Navigation active states */
+        .navbar-nav .nav-item.active .nav-link,
+        .navbar-nav .nav-link.router-link-active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white !important;
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 1.25rem;
+            }
+            
+            .navbar.collapsed .navbar-brand {
+                font-size: 1.1rem;
+            }
+            
+            .navbar-nav .nav-link {
+                padding: 10px 12px !important;
+                margin: 2px 0;
+            }
+            
+            main.container {
+                padding-top: 20px;
+                padding-bottom: 20px;
+            }
+            
+            .navbar-collapse-toggle {
+                margin-right: 8px;
+                padding: 6px 10px;
+                font-size: 0.8rem;
+                margin-left: 0;
+                margin-right: auto;
+            }
+            
+            .navbar-nav.collapsed {
+                max-height: 40px;
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            
+            .navbar-nav.collapsed .nav-item {
+                margin: 1px;
+            }
+            
+            .navbar-nav.collapsed .nav-link {
+                padding: 6px 10px !important;
+                margin: 0 1px;
+                min-width: 36px;
+                text-align: center;
+                position: relative;
+                font-size: 0.9rem;
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
+                text-decoration: none;
+                color: black;
+                border-bottom: 2px solid transparent;
+                transition: all 0.3s ease;
+            }
+
+            .navbar-nav.collapsed .nav-link::before {
+                content: '';
+                position: absolute;
+                bottom: -2px;
+                left: 0;
+                width: 0;
+                height: 2px;
+                background: rgb(30, 123, 94);
+                transition: width 0.3s ease;
+            }
+
+            .navbar-nav.collapsed .nav-link:hover::before {
+                width: 100%;
+            }
+
+            .navbar-nav.collapsed .nav-link:hover {
+                background: transparent;
+                color: rgb(30, 123, 94) !important;
+            }
+
+            .navbar-nav.collapsed .nav-link::after {
+                bottom: -28px;
+                font-size: 0.65rem;
+            }
+            
+            .navbar.collapsed .navbar-logo {
+                height: 28px;
+            }
+        }
+        
+        .navbar-nav .nav-link.active::before {
+            width: 100%;
+        }
+
+        .navbar-nav.collapsed .nav-link.active::before {
+            width: 100%;
+        }
+
+        /* Additional animations and transitions */
+        .navbar-nav.collapsed .nav-link {
+            transition: all 0.3s ease;
+        }
+        
+        .navbar-nav.collapsed .nav-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px) scale(1.1);
+        }
+        
+        .navbar-nav.expanded .nav-link span {
+            transition: opacity 0.3s ease;
+        }
+        
+        /* Ensure dropdown arrows are hidden in collapsed state */
+        .navbar-nav.collapsed .dropdown-toggle::after {
+            display: none !important;
+        }
+        
+        /* Smooth transitions for all interactive elements */
+        * {
+            transition: all 0.2s ease;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #ffffff;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgb(233, 233, 233);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgb(219, 217, 217);
+        }
+        
+        /* Animation for navbar toggle */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+        }
+        
+        .navbar-nav.collapsing {
+            animation: fadeOut 0.3s ease;
+        }
+        
+        .navbar-nav.expanding {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .navbar-nav.collapsed .dropdown-toggle {
+            pointer-events: auto !important;
+        }
+        
+        .navbar-nav.collapsed .nav-link i {
+            margin: 0 !important;
+            font-size: 1rem;
+        }
+        
+        /* Ensure regular nav links work */
+        .navbar-nav .nav-link {
+            cursor: pointer;
+            text-decoration: none;
+        }
+        
+        .navbar-nav .nav-link:hover {
+            text-decoration: none;
+        }
+
+        /* Technical Chatbot Widget Styles */
+        #techChatWidget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+
+        .tech-chat-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 6px 25px rgba(34, 197, 94, 0.4);
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tech-chat-icon::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            /* background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent); */
+            animation: sweep 3s infinite;
+            opacity: 0;
+        }
+
+        .tech-chat-icon:hover::before {
+            opacity: 1;
+        }
+
+        @keyframes sweep {
+            0% {
+                transform: translateX(-100%) translateY(-100%) rotate(45deg);
+            }
+            50% {
+                transform: translateX(0%) translateY(0%) rotate(45deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateX(100%) translateY(100%) rotate(45deg);
+                opacity: 0;
+            }
+        }
+
+        .tech-chat-icon:hover {
+            transform: scale(1.15);
+            box-shadow: 0 8px 30px rgba(34, 197, 94, 0.6);
+        }
+
+        .tech-chat-icon i {
+            color: white;
+            font-size: 28px;
+            z-index: 2;
+            position: relative;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 6px 25px rgba(34, 197, 94, 0.4);
+            }
+            50% {
+                box-shadow: 0 6px 25px rgba(34, 197, 94, 0.6), 0 0 0 15px rgba(34, 197, 94, 0.1);
+            }
+            100% {
+                box-shadow: 0 6px 25px rgba(34, 197, 94, 0.4);
+            }
+        }
+
+        .tech-chat-box {
+            position: absolute;
+            bottom: 90px;
+            right: 0;
+            width: 450px;
+            height: 650px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            border: 2px solid rgba(34, 197, 94, 0.2);
+            position: relative;
+        }
+
+        .tech-chat-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.1), transparent);
+            animation: boxSweep 4s infinite;
+            z-index: 1;
+        }
+
+        @keyframes boxSweep {
+            0% {
+                left: -100%;
+            }
+            50% {
+                left: 100%;
+            }
+            100% {
+                left: -100%;
+            }
+        }
+
+        .tech-chat-box.show {
+            display: flex;
+            animation: slideUpIn 0.4s ease;
+        }
+
+        @keyframes slideUpIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .tech-chat-header {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+            color: white;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        .tech-chat-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: headerSweep 3s infinite;
+        }
+
+        @keyframes headerSweep {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        .tech-chat-title {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 18px;
+            z-index: 2;
+            position: relative;
+            gap: 12px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+
+        .tech-chat-logo {
+            height: 32px;
+            width: auto;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+            filter: brightness(1) contrast(1.1);
+        }
+
+        .tech-chat-logo:hover {
+            transform: scale(1.05);
+            filter: brightness(1.1) contrast(1.2);
+        }
+
+        .tech-chat-controls {
+            display: flex;
+            gap: 10px;
+            z-index: 2;
+            position: relative;
+        }
+
+        .tech-chat-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tech-chat-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .tech-chat-btn:hover::before {
+            left: 100%;
+        }
+
+        .tech-chat-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .tech-chat-body {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tech-chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            background: #f8fafc;
+            position: relative;
+            z-index: 2;
+        }
+
+        .tech-message {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .tech-message.user-message {
+            flex-direction: row-reverse;
+        }
+
+        .tech-message-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bot-message .tech-message-avatar {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+            color: white;
+            padding: 4px;
+        }
+
+        .bot-message .tech-message-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 50%;
+        }
+
+        .tech-message-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 2;
+        }
+
+        .user-message .tech-message-content {
+            align-items: flex-end;
+        }
+
+        .tech-message-bubble {
+            background: white;
+            padding: 14px 18px;
+            border-radius: 18px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+            max-width: 85%;
+            word-wrap: break-word;
+            line-height: 1.6;
+            position: relative;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif;
+        }
+
+        .tech-message-bubble::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.05), transparent);
+            animation: bubbleSweep 3s infinite;
+        }
+
+        @keyframes bubbleSweep {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        .user-message .tech-message-bubble {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+        }
+
+        .tech-chat-footer {
+            background: white;
+            border-top: 2px solid #e2e8f0;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .tech-chat-input-container {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        #techChatInput {
+            flex: 1;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        #techChatInput:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+        }
+
+        .tech-chat-send-btn {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+            border: none;
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tech-chat-send-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .tech-chat-send-btn:hover::before {
+            left: 100%;
+        }
+
+        .tech-chat-send-btn:hover:not(:disabled) {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .tech-chat-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .tech-chat-quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tech-quick-btn {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 1px solid #22c55e;
+            color: #15803d;
+            padding: 8px 14px;
+            border-radius: 22px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tech-quick-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .tech-quick-btn:hover::before {
+            left: 100%;
+        }
+
+        .tech-quick-btn:hover {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            border-color: #22c55e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .tech-chat-box {
+                width: calc(100vw - 40px);
+                height: calc(100vh - 120px);
+                bottom: 90px;
+                right: 20px;
+                left: 20px;
+            }
+            
+            .tech-chat-icon {
+                width: 64px;
+                height: 64px;
+            }
+            
+            .tech-chat-icon i {
+                font-size: 26px;
+            }
+        }
+
+        /* Scrollbar Styling */
+        .tech-chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .tech-chat-messages::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+
+        .tech-chat-messages::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .tech-chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Loading Animation */
+        .tech-message-loading {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px;
+        }
+
+        .tech-loading-dot {
+            width: 8px;
+            height: 8px;
+            background: #cbd5e1;
+            border-radius: 50%;
+            animation: techLoadingBounce 1.4s infinite both;
+        }
+
+        .tech-loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .tech-loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes techLoadingBounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        /* Additional markdown elements */
+        .tech-message-bubble table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8px 0;
+            font-size: 0.9em;
+        }
+
+        .tech-message-bubble th,
+        .tech-message-bubble td {
+            border: 1px solid #e2e8f0;
+            padding: 6px 10px;
+            text-align: left;
+        }
+
+        .tech-message-bubble th {
+            background: #f0fdf4;
+            font-weight: 600;
+        }
+
+        .tech-message-bubble hr {
+            border: none;
+            height: 1px;
+            background: #22c55e;
+            margin: 12px 0;
+        }
+
+        /* Responsive text sizing */
+        @media (max-width: 768px) {
+            .tech-message-bubble {
+                font-size: 0.9em;
+                max-width: 90%;
+            }
+            
+            .tech-message-bubble pre {
+                font-size: 0.8em;
+                padding: 8px;
+            }
+            
+            .tech-message-bubble code {
+                font-size: 0.8em;
+            }
+        }
+
+        /* Markdown styling for bot messages */
+        .tech-message-bubble h1, 
+        .tech-message-bubble h2, 
+        .tech-message-bubble h3 {
+            margin: 8px 0 4px 0;
+            font-weight: 600;
+        }
+
+        .tech-message-bubble h1 { font-size: 1.1rem; }
+        .tech-message-bubble h2 { font-size: 1.05rem; }
+        .tech-message-bubble h3 { font-size: 1rem; }
+
+        .tech-message-bubble strong {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .user-message .tech-message-bubble strong {
+            color: rgba(255, 255, 255, 0.95);
+        }
+
+        .tech-message-bubble em {
+            font-style: italic;
+            color: #6b7280;
+        }
+
+        .user-message .tech-message-bubble em {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .tech-message-bubble code {
+            background: #f3f4f6;
+            color: #dc2626;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85em;
+        }
+
+        .user-message .tech-message-bubble code {
+            background: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.95);
+        }
+
+        .tech-message-bubble pre {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+        }
+
+        .tech-message-bubble pre code {
+            background: none;
+            color: #374151;
+            padding: 0;
+            border-radius: 0;
+        }
+
+        .tech-message-bubble ul, 
+        .tech-message-bubble ol {
+            margin: 8px 0 8px 16px;
+            padding: 0;
+        }
+
+        .tech-message-bubble li {
+            margin: 4px 0;
+            line-height: 1.4;
+        }
+
+        .tech-message-bubble blockquote {
+            border-left: 3px solid #22c55e;
+            margin: 8px 0;
+            padding: 8px 0 8px 12px;
+            background: #f0fdf4;
+            border-radius: 0 6px 6px 0;
+            font-style: italic;
+        }
+
+        .tech-message-bubble a {
+            color: #22c55e;
+            text-decoration: none;
+        }
+
+        .tech-message-bubble a:hover {
+            text-decoration: underline;
+        }
+
+        .user-message .tech-message-bubble a {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .tech-message-bubble p {
+            margin: 6px 0;
+        }
+
+        .tech-message-bubble br {
+            line-height: 1.6;
+        }
+
+        .tech-message-time {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        .user-message .tech-message-avatar {
+            background: linear-gradient(135deg, #10a37f, #15b887);
+            color: white;
+        }
+
+        .user-message .tech-message-avatar i {
+            font-size: 18px;
+        }
+
+        /* Hover dropdown styles */
+        .navbar-nav .dropdown:hover .dropdown-menu {
+            display: block;
+        }
+
+        .navbar-nav .dropdown .dropdown-menu {
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .navbar-nav .dropdown .dropdown-menu.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .navbar-nav .dropdown-toggle:hover {
+            color: rgb(30, 123, 94) !important;
+            background: transparent;
+        }
+
+        /* Collapsed state hover dropdown */
+        .navbar-nav.collapsed .dropdown:hover .dropdown-menu {
+            display: block !important;
+            position: absolute !important;
+            top: 100% !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            margin-top: 8px !important;
+            z-index: 9999 !important;
+        }
+
+        .navbar-nav.collapsed .dropdown .dropdown-menu {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .navbar-nav.collapsed .dropdown .dropdown-menu.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* Enhanced dropdown animations */
+        .dropdown-menu {
+            animation-duration: 0.3s;
+            animation-fill-mode: both;
+        }
+
+        .dropdown-menu.show {
+            animation-name: dropdownFadeIn;
+        }
+
+        @keyframes dropdownFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Hover indicator for dropdown toggles */
+        .navbar-nav .dropdown-toggle::after {
+            transition: transform 0.3s ease;
+        }
+
+        .navbar-nav .dropdown:hover .dropdown-toggle::after {
+            transform: rotate(180deg);
+        }
+
+        .navbar-nav .dropdown-toggle[aria-expanded="true"]::after {
+            transform: rotate(180deg);
+        }
+
+        /* Smooth hover effects */
+        .navbar-nav .dropdown-toggle {
+            transition: all 0.3s ease;
+        }
+
+        .navbar-nav .dropdown-toggle:hover {
+            color: rgb(30, 123, 94) !important;
+            background: rgba(30, 123, 94, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark w-100" style="width:100vw;left:0;right:0;">
+            <!-- Navbar Collapse Toggle Button -->
+            <button class="navbar-collapse-toggle" id="navbarCollapseToggle" type="button" style="background: transparent; border: none; color: rgb(30, 123, 94); padding: 8px; transition: all 0.3s ease;">
+                <i class="fas fa-bars" style="font-size: 1.2rem;"></i>
+                <!-- <span class="d-none d-md-inline">Menu</span> -->
+            </button>
+            
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <img src="{% static 'images/logo_optionbar.png' %}" alt="WoxionChat" class="navbar-logo">
+                <span>𝕎𝕠𝕩𝕚𝕠𝕟ℂ𝕙𝕒𝕥</span>
+                <small class="badge bg-light text-dark ms-2"></small>
+            </a>
+            
+            <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto expanded" style="margin-right: 15px;" id="mainNavbar">
+                    {% if user %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'dashboard' %}" data-tooltip="Dashboard">
+                                <i class="fas fa-columns me-1"></i><span>Dashboard</span>    <!-- Board pattern -->
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'chat_advanced' %}" data-tooltip="WoxionChat">
+                                <i class="fas fa-brain"></i>
+                                <span>WoxionChat</span>
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" data-tooltip="OCR Feature">
+                                <i class="fas fa-eye me-1"></i><span>Docs Scanner</span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'OCRfeature:ocr_home' %}">
+                                    <i class="fas fa-home me-2"></i>Document Scanner
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'OCRfeature:upload_file' %}">
+                                    <i class="fas fa-upload me-2"></i>Tải file lên
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'OCRfeature:list_files' %}">
+                                    <i class="fas fa-list me-2"></i>Danh sách file
+                                </a></li>
+                            </ul>
+                        </li>
+                        {% if user.is_admin %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'users_management' %}" data-tooltip="Quản lý Users">
+                                <i class="fas fa-users me-1"></i><span>Quản lý Users</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'admin_dashboard' %}" data-tooltip="Admin Panel">
+                                <i class="fas fa-crown me-1"></i><span>Admin Panel</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" data-tooltip="{{ user.first_name }} {{ user.last_name }}">
+                                <i class="fas fa-user me-1"></i><span>{{ user.first_name }} {{ user.last_name }}</span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'profile' %}">
+                                    <i class="fas fa-user-edit"></i>Chỉnh sửa profile
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'logout' %}" style="color: #ef4444;">
+                                    <i class="fas fa-sign-out-alt"></i>Đăng xuất
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}" data-tooltip="Đăng nhập">
+                                <i class="fas fa-sign-in-alt me-1"></i><span>Đăng nhập</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'register' %}" data-tooltip="Đăng ký">
+                                <i class="fas fa-user-plus me-1"></i><span>Đăng ký</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Technical Support Chatbot Widget -->
+    <div id="techChatWidget">
+        <!-- Floating Icon -->
+        <div id="techChatIcon" class="tech-chat-icon">
+            <i class="fas fa-headset"></i>
+        </div>
+        
+        <!-- Chat Interface -->
+        <div id="techChatBox" class="tech-chat-box">
+            <div class="tech-chat-header">
+                <div class="tech-chat-title">
+                    <img src="{% static 'images/logo_WoxionSupport.png' %}" alt="WoxionSupport" class="tech-chat-logo">
+                    <span>WoxionChat Support</span>
+                </div>
+                <div class="tech-chat-controls">
+                    <button id="techChatMinimize" class="tech-chat-btn">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <button id="techChatClose" class="tech-chat-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="tech-chat-body">
+                <div id="techChatMessages" class="tech-chat-messages">
+                    <div class="tech-message bot-message">
+                        <div class="tech-message-avatar">
+                            <img src="{% static 'images/logo_WoxionSupport.png' %}" alt="WoxionSupport">
+                        </div>
+                        <div class="tech-message-content">
+                            <div class="tech-message-bubble">
+                                👋 Xin chào! Tôi là WoxionChat Support hỗ trợ bạn trong vấn đề kĩ thuật. Tôi có thể giúp bạn:
+                                <br><br>
+                                🔧 <strong>Hướng dẫn sửa lỗi hệ thống</strong><br>
+                                💻 <strong>Hướng dẫn sử dụng</strong><br>
+                                🛠️ <strong>Khắc phục sự cố</strong><br>
+                                📞 <strong>Liên hệ support</strong><br><br>
+                                Bạn cần hỗ trợ gì hôm nay?
+                            </div>
+                            <div class="tech-message-time">{{ now|date:"H:i" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tech-chat-footer">
+                <div class="tech-chat-input-container">
+                    <input type="text" id="techChatInput" placeholder="Nhập câu hỏi kỹ thuật..." maxlength="500">
+                    <button id="techChatSend" class="tech-chat-send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="tech-chat-quick-actions">
+                    <button class="tech-quick-btn" data-message="Tôi gặp lỗi đăng nhập">
+                        🔐 Lỗi đăng nhập
+                    </button>
+                    <button class="tech-quick-btn" data-message="Hệ thống chạy chậm">
+                        ⚡ Hệ thống chậm
+                    </button>
+                    <button class="tech-quick-btn" data-message="Không thể gửi tin nhắn">
+                        💬 Lỗi chat
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Navbar collapse functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Navbar script loaded');
+            
+            const toggleButton = document.getElementById('navbarCollapseToggle');
+            const navbar = document.querySelector('.navbar');
+            const navbarNav = document.getElementById('mainNavbar');
+            const toggleIcon = toggleButton.querySelector('i');
+            const toggleText = toggleButton.querySelector('span');
+            
+            let isCollapsed = false;
+            
+            // Debug: Check if elements exist
+            console.log('Toggle button:', toggleButton);
+            console.log('Navbar:', navbar);
+            console.log('NavbarNav:', navbarNav);
+            
+            toggleButton.addEventListener('click', function() {
+                console.log('Toggle clicked, current state:', isCollapsed);
+                isCollapsed = !isCollapsed;
+                
+                if (isCollapsed) {
+                    // Collapse navbar - show only icons
+                    navbarNav.classList.remove('expanded');
+                    navbarNav.classList.add('collapsed');
+                    navbar.classList.add('collapsed');
+                    toggleButton.classList.add('collapsed');
+                    toggleIcon.className = 'fas fa-ellipsis-v';
+                    // if (toggleText) toggleText.textContent = '';
+                    
+                    // Store state in localStorage
+                    localStorage.setItem('navbarCollapsed', 'true');
+                    console.log('Navbar collapsed');
+                } else {
+                    // Expand navbar - show icons and text
+                    navbarNav.classList.remove('collapsed');
+                    navbarNav.classList.add('expanded');
+                    navbar.classList.remove('collapsed');
+                    toggleButton.classList.remove('collapsed');
+                    toggleIcon.className = 'fas fa-bars';
+                    // if (toggleText) toggleText.textContent = 'Menu';
+                    
+                    // Store state in localStorage
+                    localStorage.setItem('navbarCollapsed', 'false');
+                    console.log('Navbar expanded');
+                }
+                
+                // Reinitialize Bootstrap dropdowns after state change
+                setTimeout(() => {
+                    initializeDropdowns();
+                }, 100);
+            });
+            
+            // Initialize dropdowns
+            function initializeDropdowns() {
+                console.log('Initializing dropdowns');
+                const dropdowns = document.querySelectorAll('.navbar-nav .dropdown-toggle');
+                console.log('Found dropdowns:', dropdowns.length);
+                
+                dropdowns.forEach((dropdown, index) => {
+                    console.log(`Processing dropdown ${index}:`, dropdown);
+                    
+                    // Remove existing Bootstrap dropdown instance
+                    const existingDropdown = bootstrap.Dropdown.getInstance(dropdown);
+                    if (existingDropdown) {
+                        existingDropdown.dispose();
+                        console.log(`Disposed existing dropdown ${index}`);
+                    }
+                    
+                    // Create new Bootstrap dropdown instance
+                    try {
+                        new bootstrap.Dropdown(dropdown);
+                        console.log(`Created new dropdown ${index}`);
+                    } catch (error) {
+                        console.error(`Error creating dropdown ${index}:`, error);
+                    }
+                });
+
+                initializeHoverDropdowns();
+            }
+            
+            function initializeHoverDropdowns() {
+                const dropdowns = document.querySelectorAll('.navbar-nav .dropdown');
+                
+                dropdowns.forEach(dropdown => {
+                    const dropdownToggle = dropdown.querySelector('.dropdown-toggle');
+                    const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+                    let hoverTimeout;
+                    
+                    // Remove existing event listeners
+                    dropdown.removeEventListener('mouseenter', handleDropdownHover);
+                    dropdown.removeEventListener('mouseleave', handleDropdownLeave);
+                    
+                    // Add hover event listeners
+                    dropdown.addEventListener('mouseenter', handleDropdownHover);
+                    dropdown.addEventListener('mouseleave', handleDropdownLeave);
+                    
+                    function handleDropdownHover() {
+                        clearTimeout(hoverTimeout);
+                        
+                        // Close other dropdowns
+                        closeAllDropdowns();
+                        
+                        // Show current dropdown
+                        const bootstrapDropdown = bootstrap.Dropdown.getOrCreateInstance(dropdownToggle);
+                        setTimeout(() => {
+                            bootstrapDropdown.show();
+                        }, 100);
+                    }
+                    
+                    function handleDropdownLeave() {
+                        hoverTimeout = setTimeout(() => {
+                            const bootstrapDropdown = bootstrap.Dropdown.getInstance(dropdownToggle);
+                            if (bootstrapDropdown) {
+                                bootstrapDropdown.hide();
+                            }
+                        }, 300);
+                    }
+                });
+            }
+            // Restore state from localStorage
+            const savedState = localStorage.getItem('navbarCollapsed');
+            console.log('Saved state:', savedState);
+            if (savedState === 'true') {
+                setTimeout(() => {
+                    toggleButton.click();
+                }, 100);
+            }
+            
+            // Add smooth hover effects
+            toggleButton.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-2px) scale(1.05)';
+            });
+            
+            toggleButton.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+            
+            // Initialize dropdowns on page load
+            initializeDropdowns();
+            
+            // Handle dropdown positioning when collapsed
+            const dropdowns = document.querySelectorAll('.navbar-nav .dropdown');
+            console.log('Setting up dropdown positioning for', dropdowns.length, 'dropdowns');
+            
+            dropdowns.forEach((dropdown, index) => {
+                const dropdownToggle = dropdown.querySelector('.dropdown-toggle');
+                const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+                
+                console.log(`Setting up dropdown ${index}:`, dropdown);
+                
+                // Add event listeners for dropdown show/hide
+                dropdown.addEventListener('show.bs.dropdown', function() {
+                    console.log(`Dropdown ${index} showing, collapsed state:`, navbarNav.classList.contains('collapsed'));
+                    if (navbarNav.classList.contains('collapsed')) {
+                        // Ensure proper positioning for collapsed state
+                        setTimeout(() => {
+                            dropdownMenu.style.position = 'absolute';
+                            dropdownMenu.style.top = '100%';
+                            dropdownMenu.style.left = '50%';
+                            dropdownMenu.style.transform = 'translateX(-50%)';
+                            dropdownMenu.style.zIndex = '9999';
+                            console.log(`Applied collapsed positioning to dropdown ${index}`);
+                        }, 10);
+                    }
+                });
+                
+                dropdown.addEventListener('hide.bs.dropdown', function() {
+                    console.log(`Dropdown ${index} hiding`);
+                    // Reset styles when dropdown is hidden
+                    dropdownMenu.style.position = '';
+                    dropdownMenu.style.top = '';
+                    dropdownMenu.style.left = '';
+                    dropdownMenu.style.transform = '';
+                });
+            });
+            
+            // Debug: Test all navigation links
+            const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+            console.log('Found navigation links:', navLinks.length);
+            navLinks.forEach((link, index) => {
+                console.log(`Nav link ${index}:`, link.href, link.textContent.trim());
+                
+                // Add click event listener for debugging
+                link.addEventListener('click', function(e) {
+                    console.log(`Nav link ${index} clicked:`, this.href);
+                    // Don't prevent default - let the navigation happen
+                });
+            });
+        });
+
+        // Technical Chatbot Widget Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const techChatIcon = document.getElementById('techChatIcon');
+            const techChatBox = document.getElementById('techChatBox');
+            const techChatClose = document.getElementById('techChatClose');
+            const techChatMinimize = document.getElementById('techChatMinimize');
+            const techChatInput = document.getElementById('techChatInput');
+            const techChatSend = document.getElementById('techChatSend');
+            const techChatMessages = document.getElementById('techChatMessages');
+            const techQuickBtns = document.querySelectorAll('.tech-quick-btn');
+            
+            let isTyping = false;
+            
+            // Show/Hide chat box
+            techChatIcon.addEventListener('click', function() {
+                if (techChatBox.classList.contains('show')) {
+                    closeChatBox();
+                } else {
+                    openChatBox();
+                }
+            });
+            
+            techChatClose.addEventListener('click', function() {
+                closeChatBox();
+            });
+            
+            techChatMinimize.addEventListener('click', function() {
+                closeChatBox();
+            });
+            
+            function openChatBox() {
+                techChatBox.classList.add('show');
+                techChatIcon.style.display = 'none';
+                techChatInput.focus();
+                scrollToBottom();
+            }
+            
+            function closeChatBox() {
+                techChatBox.classList.remove('show');
+                techChatIcon.style.display = 'flex';
+            }
+            
+            // Send message
+            function sendMessage() {
+                const message = techChatInput.value.trim();
+                if (message && !isTyping) {
+                    addUserMessage(message);
+                    techChatInput.value = '';
+                    processMessage(message);
+                }
+            }
+            
+            techChatSend.addEventListener('click', sendMessage);
+            
+            techChatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            // Quick action buttons
+            techQuickBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const message = this.getAttribute('data-message');
+                    if (message && !isTyping) {
+                        addUserMessage(message);
+                        processMessage(message);
+                    }
+                });
+            });
+            
+            // Add user message
+            function addUserMessage(message) {
+                const messageTime = new Date().toLocaleTimeString('vi-VN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                const messageHTML = `
+                    <div class="tech-message user-message">
+                        <div class="tech-message-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="tech-message-content">
+                            <div class="tech-message-bubble">${escapeHtml(message)}</div>
+                            <div class="tech-message-time">${messageTime}</div>
+                        </div>
+                    </div>
+                `;
+                
+                techChatMessages.insertAdjacentHTML('beforeend', messageHTML);
+                scrollToBottom();
+            }
+            
+            // Add bot message
+            function addBotMessage(message) {
+                const messageTime = new Date().toLocaleTimeString('vi-VN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                // Parse markdown to HTML using the helper function
+                const parsedMessage = parseMarkdown(message);
+                
+                const messageHTML = `
+                    <div class="tech-message bot-message">
+                        <div class="tech-message-avatar">
+                            <img src="{% static 'images/logo_WoxionSupport.png' %}" alt="WoxionSupport">
+                        </div>
+                        <div class="tech-message-content">
+                            <div class="tech-message-bubble">${parsedMessage}</div>
+                            <div class="tech-message-time">${messageTime}</div>
+                        </div>
+                    </div>
+                `;
+                
+                techChatMessages.insertAdjacentHTML('beforeend', messageHTML);
+                scrollToBottom();
+            }
+            
+            // Show typing indicator
+            function showTypingIndicator() {
+                const typingHTML = `
+                    <div class="tech-message bot-message" id="typingIndicator">
+                        <div class="tech-message-avatar">
+                            <img src="{% static 'images/logo_WoxionSupport.png' %}" alt="WoxionSupport">
+                        </div>
+                        <div class="tech-message-content">
+                            <div class="tech-message-bubble">
+                                <div class="tech-message-loading">
+                                    <div class="tech-loading-dot"></div>
+                                    <div class="tech-loading-dot"></div>
+                                    <div class="tech-loading-dot"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                techChatMessages.insertAdjacentHTML('beforeend', typingHTML);
+                scrollToBottom();
+            }
+            
+            // Remove typing indicator
+            function removeTypingIndicator() {
+                const typingIndicator = document.getElementById('typingIndicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+            }
+            
+            // Process message and generate response
+            function processMessage(message) {
+                isTyping = true;
+                techChatSend.disabled = true;
+                
+                showTypingIndicator();
+                
+                // Call the tech chat API
+                fetch('/support/message/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        'question': message
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    removeTypingIndicator();
+                    if (data.answer) {
+                        addBotMessage(data.answer);
+                    } else if (data.error) {
+                        addBotMessage(`❌ <strong>Lỗi:</strong> ${data.error}`);
+                    }
+                    
+                    isTyping = false;
+                    techChatSend.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Tech chat API error:', error);
+                    removeTypingIndicator();
+                    
+                    // Fallback to local response
+                    const fallbackResponse = generateTechResponse(message);
+                    addBotMessage(fallbackResponse);
+                    
+                    isTyping = false;
+                    techChatSend.disabled = false;
+                });
+            }
+            
+            // Helper function to get CSRF token
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            
+            // Generate technical support response
+            function generateTechResponse(message) {
+                return `🤖 **WoxionChat Technical Support**<br><br>
+                Cảm ơn bạn đã liên hệ hỗ trợ kỹ thuật. Chúng tôi đã nhận được tin nhắn của bạn.<br><br>
+                Đội ngũ kỹ thuật sẽ phản hồi sớm nhất có thể.<br><br>
+                **📞 Liên hệ:** support@woxionchat.com<br>
+                **⏰ Thời gian hỗ trợ:** 24/7`;
+            }
+            
+            // Utility functions
+            function escapeHtml(text) {
+                const map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            }
+            
+            function scrollToBottom() {
+                setTimeout(() => {
+                    techChatMessages.scrollTop = techChatMessages.scrollHeight;
+                }, 100);
+            }
+            
+            // Click outside to close
+            document.addEventListener('click', function(e) {
+                if (!document.getElementById('techChatWidget').contains(e.target)) {
+                    if (techChatBox.classList.contains('show')) {
+                        // Don't auto-close, let user manually close
+                    }
+                }
+            });
+
+            // Helper function to parse markdown safely
+            function parseMarkdown(text) {
+                try {
+                    console.log('Parsing markdown:', text.substring(0, 100) + '...');
+                    
+                    // Configure marked with safe options
+                    const renderer = new marked.Renderer();
+                    
+                    // Customize link rendering for security
+                    renderer.link = function(href, title, text) {
+                        // Only allow http, https, and mailto links
+                        if (!/^(https?:|mailto:)/.test(href)) {
+                            return text;
+                        }
+                        return `<a href="${href}" ${title ? `title="${title}"` : ''} target="_blank" rel="noopener noreferrer">${text}</a>`;
+                    };
+                    
+                    // Customize code rendering
+                    renderer.code = function(code, language) {
+                        const validLang = language && /^[a-zA-Z0-9-]+$/.test(language) ? language : '';
+                        return `<pre><code class="${validLang ? `language-${validLang}` : ''}">${escapeHtml(code)}</code></pre>`;
+                    };
+                    
+                    marked.setOptions({
+                        renderer: renderer,
+                        breaks: true,
+                        gfm: true,
+                        sanitize: false,
+                        smartLists: true,
+                        smartypants: false,
+                        headerIds: false,
+                        mangle: false
+                    });
+                    
+                    let html = marked.parse(text);
+                    
+                    // Additional sanitization
+                    html = html
+                        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                        .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+                        .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+                        .replace(/<embed\b[^>]*>/gi, '')
+                        .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
+                        .replace(/on\w+\s*=\s*'[^']*'/gi, '')
+                        .replace(/javascript:/gi, 'removed:');
+                    
+                    console.log('Parsed HTML:', html.substring(0, 100) + '...');
+                    return html;
+                    
+                } catch (error) {
+                    console.error('Markdown parsing error:', error);
+                    return escapeHtml(text).replace(/\n/g, '<br>');
+                }
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropdowns = document.querySelectorAll('.navbar-nav .dropdown');
+            
+            dropdowns.forEach(dropdown => {
+                const dropdownToggle = dropdown.querySelector('.dropdown-toggle');
+                const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+                let hoverTimeout;
+                
+                // Show dropdown on hover
+                dropdown.addEventListener('mouseenter', function() {
+                    clearTimeout(hoverTimeout);
+                    
+                    // Close other dropdowns first
+                    closeAllDropdowns();
+                    
+                    // Show current dropdown
+                    const bootstrapDropdown = bootstrap.Dropdown.getOrCreateInstance(dropdownToggle);
+                    bootstrapDropdown.show();
+                });
+                
+                // Hide dropdown on mouse leave with delay
+                dropdown.addEventListener('mouseleave', function() {
+                    hoverTimeout = setTimeout(() => {
+                        const bootstrapDropdown = bootstrap.Dropdown.getInstance(dropdownToggle);
+                        if (bootstrapDropdown) {
+                            bootstrapDropdown.hide();
+                        }
+                    }, 200); // 200ms delay to prevent accidental closure
+                });
+                
+                // Keep dropdown open when hovering over the menu
+                dropdownMenu.addEventListener('mouseenter', function() {
+                    clearTimeout(hoverTimeout);
+                });
+                
+                dropdownMenu.addEventListener('mouseleave', function() {
+                    hoverTimeout = setTimeout(() => {
+                        const bootstrapDropdown = bootstrap.Dropdown.getInstance(dropdownToggle);
+                        if (bootstrapDropdown) {
+                            bootstrapDropdown.hide();
+                        }
+                    }, 200);
+                });
+            });
+            
+            // Function to close all dropdowns
+            function closeAllDropdowns() {
+                const allDropdowns = document.querySelectorAll('.navbar-nav .dropdown-toggle');
+                allDropdowns.forEach(toggle => {
+                    const bootstrapDropdown = bootstrap.Dropdown.getInstance(toggle);
+                    if (bootstrapDropdown) {
+                        bootstrapDropdown.hide();
+                    }
+                });
+            }
+            
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.navbar-nav .dropdown')) {
+                    closeAllDropdowns();
+                }
+            });
+        });
+    </script>
+{% block extra_scripts %}
+{% endblock extra_scripts %}
+</body>
+</html> 

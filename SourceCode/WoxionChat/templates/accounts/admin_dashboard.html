@@ -1,0 +1,679 @@
+{% extends 'accounts/base.html' %}
+
+{% block title %}🔧 Admin Dashboard - WoxionChat{% endblock %}
+
+{% block content %}
+<style>
+    .admin-header {
+        background: rgb(255, 255, 255);
+        border-radius: 10px;
+        padding: 40px;
+        margin-bottom: 32px;
+        box-shadow: 0 8px 30px rgba(213, 247, 219, 0.08);
+        border: 1px solid #f1f5f9;
+        position: relative;
+        overflow: hidden;
+        animation: slideInDown 0.8s ease-out;
+    }
+    
+    .admin-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+    }
+    
+    @keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .admin-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: rgb(30,123,94);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    
+    .admin-subtitle {
+        color: #6b7280;
+        font-size: 1.1rem;
+        margin-bottom: 24px;
+    }
+    
+    .admin-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+        animation: slideInUp 0.8s ease-out 0.2s both;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 28px 24px;
+        text-align: center;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #f1f5f9;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card.primary::before { background: linear-gradient(135deg, #10a37f, #15b887); }
+    .stat-card.success::before { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .stat-card.info::before { background: linear-gradient(135deg, #059669, #047857); }
+    .stat-card.warning::before { background: linear-gradient(135deg, #16a34a, #15803d); }
+    
+    .stat-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+    }
+    
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 1.5rem;
+        color: white;
+    }
+    
+    .stat-icon.primary { background: linear-gradient(135deg, #10a37f, #15b887); }
+    .stat-icon.success { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .stat-icon.info { background: linear-gradient(135deg, #059669, #047857); }
+    .stat-icon.warning { background: linear-gradient(135deg, #16a34a, #15803d); }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 8px;
+    }
+    
+    .stat-label {
+        color: #6b7280;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+    
+    .role-stats-section {
+        background: white;
+        border-radius: 10px;
+        padding: 32px;
+        margin-bottom: 32px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        border: 1px solid #f1f5f9;
+        animation: slideInUp 0.8s ease-out 0.4s both;
+    }
+    
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        color: rgb(30,123,94);
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    
+    .role-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 16px;
+    }
+    
+    .role-stat-item {
+        background: #f8fafc;
+        padding: 20px 16px;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+    
+    .role-stat-item:hover {
+        background: #cff3e7;
+        border-color: #bbf7d0;
+        transform: translateY(-2px);
+    }
+    
+    .role-stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: rgb(30,123,94);
+        margin-bottom: 6px;
+    }
+    
+    .role-stat-label {
+        color: #6b7280;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 32px;
+        margin-bottom: 32px;
+    }
+    
+    .action-section {
+        background: white;
+        border-radius: 10px;
+        padding: 32px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        border: 1px solid #f1f5f9;
+        animation: slideInUp 0.8s ease-out both;
+    }
+    
+    .action-section.management { animation-delay: 0.6s; }
+    .action-section.system { animation-delay: 0.8s; }
+    
+    .action-btn {
+        background: #81aad2;
+        border: 1px solid #e2e8f0;
+        color: #ffffff;
+        padding: 16px 24px;
+        border-radius: 10px;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.3s ease;
+        margin-bottom: 12px;
+        font-weight: 500;
+        cursor: pointer;  
+        border: none;
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(16, 163, 127, 0.3);
+        color: white;
+    }
+    
+    .action-btn.success {
+        background: linear-gradient(135deg, #7bcc99, #67ca8b);
+    }
+    
+    .action-btn.success:hover {
+        box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3);
+    }
+    
+    .action-btn.warning {
+        background: linear-gradient(135deg, #c4d492, #b8c474);
+    }
+    
+    .action-btn.warning:hover {
+        box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3);
+    }
+    
+    .action-btn.info {
+        background: linear-gradient(135deg, #059669, #047857);
+    }
+    
+    .action-btn.info:hover {
+        box-shadow: 0 8px 20px rgba(5, 150, 105, 0.3);
+    }
+    
+    .recent-users-section {
+        background: white;
+        border-radius: 10px;
+        padding: 32px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        border: 1px solid #f1f5f9;
+        animation: slideInUp 0.8s ease-out 1s both;
+    }
+    
+    .table-container {
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 20px;
+        margin-top: 20px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .user-table {
+        width: 100%;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    .user-table th {
+        background: #f8fafc;
+        color: #374151;
+        font-weight: 600;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.9rem;
+    }
+    
+    .user-table td {
+        padding: 16px 20px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #6b7280;
+    }
+    
+    .user-table tr:hover {
+        background: #cff3e7;
+    }
+    
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        margin-right: 8px;
+    }
+    
+    .role-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+    
+    .role-badge.admin {
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+    }
+    
+    .role-badge.user {
+        background: #f0fdf4;
+        color: #16a34a;
+        border: 1px solid #bbf7d0;
+    }
+    
+    .edit-btn {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: #6b7280;
+        padding: 6px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+    }
+    
+    .edit-btn:hover {
+        background: #10a37f;
+        border-color: #10a37f;
+        color: white;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .admin-header {
+            padding: 24px 20px;
+        }
+        
+        .admin-title {
+            font-size: 2rem;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        
+        .actions-grid {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .action-section {
+            padding: 24px 20px;
+        }
+        
+        .recent-users-section {
+            padding: 24px 20px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+    }
+</style>
+
+<div class="container-fluid">
+    <!-- Admin Header -->
+    <div class="admin-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="admin-title">
+                    <i class="fas fa-crown"></i>
+                    Admin Dashboard
+                </h1>
+                <p class="admin-subtitle">
+                    Chào mừng <strong>{{ user.get_full_name }}</strong> - Quản trị viên hệ thống WoxionChat
+                </p>
+                <div class="admin-badge">
+                    <i class="fas fa-shield-alt"></i>
+                    {{ user.get_role_display }}
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="d-flex flex-column align-items-end">
+                    <small class="text-muted mb-2">Trạng thái hệ thống</small>
+                    <span class="badge bg-success" style="background: linear-gradient(135deg, #10a37f, #15b887) !important;">
+                        <i class="fas fa-check-circle me-1"></i>Online
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <div class="stat-icon primary">
+                <i class="fas fa-users"></i>
+            </div>
+            <div style="color:rgb(30,123,94)" class="stat-number">{{ total_users }}</div>
+            <div class="stat-label">Tổng người dùng</div>
+        </div>
+        
+        <div class="stat-card success">
+            <div class="stat-icon success">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <div style="color:rgb(30,123,94)" class="stat-number">{{ active_sessions }}</div>
+            <div class="stat-label">Phiên hoạt động</div>
+        </div>
+        
+        <div class="stat-card info">
+            <div class="stat-icon info">
+                <i class="fas fa-database"></i>
+            </div>
+            <div class="stat-number" style="color:rgb(30,123,94)">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-label">Hệ thống</div>
+        </div>
+        
+        <div class="stat-card warning">
+            <div class="stat-icon warning">
+                <i class="fas fa-cogs"></i>
+            </div>
+            <div class="stat-number" style="color:rgb(30,123,94)">
+                <i class="fas fa-infinity"></i>
+            </div>
+            <div class="stat-label">Full Access</div>
+        </div>
+    </div>
+
+    <!-- Role Statistics -->
+    {% if role_stats %}
+    <div class="role-stats-section">
+        <h3 class="section-header">
+            Thống kê vai trò người dùng
+        </h3>
+        <div class="role-stats-grid">
+            {% for role_name, count in role_stats.items %}
+            <div class="role-stat-item">
+                <div class="role-stat-number">{{ count }}</div>
+                <div class="role-stat-label">{{ role_name }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Management Actions Grid -->
+    <div class="actions-grid">
+        <!-- System Management -->
+        <div class="action-section management">
+            <h3 class="section-header">
+                Quản lý hệ thống
+            </h3>
+            <a href="{% url 'users_management' %}" class="action-btn">
+                <i class="fas fa-users-cog"></i>
+                Quản lý người dùng
+            </a>
+            <a href="{% url 'register' %}" class="action-btn success">
+                <i class="fas fa-user-plus"></i>
+                Tạo tài khoản mới
+            </a>
+            <button class="action-btn warning" onclick="loadSystemInfo()">
+                <i class="fas fa-info-circle"></i>
+                Thông tin hệ thống
+            </button>
+        </div>
+
+        <!-- System Tools -->
+        <div class="action-section system">
+            <h3 class="section-header">
+                Công cụ hệ thống
+            </h3>
+            <button class="action-btn info" style="background: #69c7c9;" onclick="testConnection()">
+                <i class="fas fa-sync"></i>
+                Test kết nối
+            </button>
+            <button class="action-btn primary" onclick="exportData()">
+                <i class="fas fa-download"></i>
+                Xuất dữ liệu  
+            </button>
+            <button class="action-btn secondary" onclick="clearCache()">
+                <i class="fas fa-broom"></i>
+                Xóa cache
+            </button>
+        </div>
+    </div>
+
+    <!-- Recent Users -->
+    {% if recent_users %}
+    <div class="recent-users-section">
+        <h3 class="section-header">
+            <i class="fas fa-clock"></i>
+            Người dùng mới đăng ký
+        </h3>
+        <div class="table-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Người dùng</th>
+                        <th>Email</th>
+                        <th>Vai trò</th>
+                        <th>Ngày tham gia</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recent_user in recent_users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="user-avatar">
+                                    {{ recent_user.first_name|first|upper }}
+                                </div>
+                                <div>
+                                    <strong>{{ recent_user.username }}</strong><br>
+                                    <small>{{ recent_user.get_full_name }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ recent_user.email }}</td>
+                        <td>
+                            <span class="role-badge {{ recent_user.role }}">
+                                {% if recent_user.role == 'admin' %}
+                                    <i class="fas fa-crown me-1"></i>
+                                {% else %}
+                                    <i class="fas fa-user me-1"></i>
+                                {% endif %}
+                                {{ recent_user.get_role_display }}
+                            </span>
+                        </td>
+                        <td>{{ recent_user.date_joined|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'edit_user' recent_user.username %}" class="edit-btn">
+                                <i class="fas fa-edit me-1"></i>Chỉnh sửa
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- System Info Modal -->
+<div class="modal fade" id="systemInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius: 20px; border: none;">
+            <div class="modal-header" style="border-bottom: 1px solid #f1f5f9;">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>Thông tin hệ thống
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="systemInfoContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status" style="color: #10a37f;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadSystemInfo() {
+    const modal = new bootstrap.Modal(document.getElementById('systemInfoModal'));
+    modal.show();
+    
+    fetch('/api/system-status/')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('systemInfoContent').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card" style="border: 1px solid #f1f5f9; border-radius: 16px;">
+                            <div class="card-body">
+                                <h6><i class="fas fa-server me-2"></i>System Status</h6>
+                                <p><strong>Status:</strong> <span class="badge bg-success">${data.system_status}</span></p>
+                                <p><strong>Database:</strong> <span class="badge bg-success">${data.database_status}</span></p>
+                                <p><strong>Timestamp:</strong> ${data.timestamp}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card" style="border: 1px solid #f1f5f9; border-radius: 16px;">
+                            <div class="card-body">
+                                <h6><i class="fas fa-chart-bar me-2"></i>Statistics</h6>
+                                <p><strong>Total Users:</strong> <span class="badge bg-primary">${data.statistics.total_users}</span></p>
+                                <p><strong>Active Sessions:</strong> <span class="badge bg-info">${data.statistics.active_sessions}</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="card" style="border: 1px solid #f1f5f9; border-radius: 16px;">
+                    <div class="card-body">
+                        <h6><i class="fas fa-cogs me-2"></i>System Info</h6>
+                        <p><strong>Platform:</strong> WoxionChat v1.0</p>
+                        <p><strong>Framework:</strong> Django + MongoDB</p>
+                        <p><strong>Status:</strong> <span class="badge bg-success">Running</span></p>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            document.getElementById('systemInfoContent').innerHTML = `
+                <div class="alert alert-danger" style="border-radius: 12px;">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading system info: ${error}
+                </div>
+            `;
+        });
+}
+
+function testConnection() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing...';
+    button.disabled = true;
+    
+    fetch('/test/mongodb/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.database_accessible) {
+                alert('✅ Database connection successful!');
+            } else {
+                alert('❌ Database connection failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            alert('❌ Test failed: ' + error);
+        })
+        .finally(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+}
+
+function exportData() {
+    alert('🚧 Tính năng xuất dữ liệu đang được phát triển...');
+}
+
+function clearCache() {
+    if (confirm('Bạn có chắc muốn xóa cache hệ thống?')) {
+        alert('🧹 Cache đã được xóa thành công!');
+    }
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,220 @@
+{% extends 'accounts/base.html' %}
+
+{% block title %}Thông tin cá nhân - WoxionChat{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h4><i class="fas fa-user-edit me-2"></i>Thông tin cá nhân</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <form id="profile-form" action="{% url 'api_profile' %}">
+                            {% csrf_token %}
+                            
+                            <div id="form-errors" class="alert alert-danger" style="display: none;"></div>
+                            <div id="form-success" class="alert alert-success" style="display: none;"></div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                        <i class="fas fa-user me-1"></i>Tên
+                                    </label>
+                                    {{ form.first_name }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                        <i class="fas fa-user me-1"></i>Họ
+                                    </label>
+                                    {{ form.last_name }}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                    <i class="fas fa-envelope me-1"></i>Email
+                                </label>
+                                {{ form.email }}
+                            </div>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary me-2">
+                                    <i class="fas fa-times me-1"></i>Hủy
+                                </a>
+                                <button type="button" id="update-profile-btn" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i>Cập nhật
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6><i class="fas fa-info-circle me-1"></i>Thông tin tài khoản</h6>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled">
+                                    <li><strong>Tên đăng nhập:</strong> {{ user.username }}</li>
+                                    <li><strong>Ngày tham gia:</strong> {{ user.date_joined|date:"d/m/Y H:i" }}</li>
+                                    <li><strong>Lần cuối online:</strong> 
+                                        {% if user.last_login %}
+                                            {{ user.last_login|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            Chưa đăng nhập
+                                        {% endif %}
+                                    </li>
+                                    <li><strong>Trạng thái:</strong> 
+                                        {% if user.is_active %}
+                                            <span class="badge bg-success">Hoạt động</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Không hoạt động</span>
+                                        {% endif %}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="card bg-info bg-opacity-25 mt-3">
+                            <div class="card-body text-center">
+                                <i class="fas fa-key fa-2x text-info mb-2"></i>
+                                <h6>Đổi mật khẩu</h6>
+                                <p class="small">Để bảo mật tài khoản của bạn</p>
+                                <a href="{% url 'change_password' %}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-lock me-1"></i>Đổi mật khẩu
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="card bg-success bg-opacity-25 mt-3">
+                            <div class="card-body text-center">
+                                <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                                <h6>Bảo mật tài khoản</h6>
+                                <p class="small">Luôn giữ tài khoản an toàn</p>
+                                <div class="d-flex flex-column gap-2">
+                                    <a href="{% url 'change_password' %}" class="btn btn-outline-success btn-sm">
+                                        <i class="fas fa-key me-1"></i>Đổi mật khẩu
+                                    </a>
+                                    <small class="text-muted">Cập nhật mật khẩu định kỳ</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("🚀 Profile page JavaScript loaded");
+    
+    const updateButton = document.getElementById('update-profile-btn');
+    const profileForm = document.getElementById('profile-form');
+    const errorContainer = document.getElementById('form-errors');
+    const successContainer = document.getElementById('form-success');
+
+    if (updateButton && profileForm) {
+        updateButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            console.log("🔄 Starting profile update...");
+            
+            // Disable button and show loading
+            updateButton.disabled = true;
+            updateButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang cập nhật...';
+            
+            // Hide previous messages
+            errorContainer.style.display = 'none';
+            successContainer.style.display = 'none';
+            
+            // Get form data
+            const formData = new FormData(profileForm);
+            const payload = {};
+            
+            // Collect only non-empty fields
+            formData.forEach((value, key) => {
+                if (key !== 'csrfmiddlewaretoken' && value.trim() !== '') {
+                    payload[key] = value.trim();
+                }
+            });
+            
+            console.log("📤 Sending PATCH request with data:", payload);
+            
+            if (Object.keys(payload).length === 0) {
+                alert('Vui lòng nhập ít nhất một thông tin để cập nhật.');
+                updateButton.disabled = false;
+                updateButton.innerHTML = '<i class="fas fa-save me-1"></i>Cập nhật';
+                return;
+            }
+
+            // Send PATCH request
+            fetch(profileForm.action, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => {
+                console.log("📥 Response status:", response.status);
+                
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("✅ Success:", data);
+                
+                // Show success message
+                successContainer.innerHTML = `<i class="fas fa-check me-1"></i>${data.message || 'Cập nhật thành công!'}`;
+                successContainer.style.display = 'block';
+                
+                // Optionally update displayed user info
+                if (data.user) {
+                    // Update any displayed user information on the page
+                    console.log("Updated user data:", data.user);
+                }
+            })
+            .catch(error => {
+                console.error("❌ Error:", error);
+                
+                // Show error messages
+                let errorHtml = '';
+                if (typeof error === 'object' && error !== null) {
+                    if (error.error) {
+                        errorHtml = `<i class="fas fa-exclamation-triangle me-1"></i>${error.error}`;
+                    } else {
+                        errorHtml = '<ul class="mb-0">';
+                        for (const [field, messages] of Object.entries(error)) {
+                            const fieldMessages = Array.isArray(messages) ? messages : [messages];
+                            errorHtml += `<li><strong>${field}:</strong> ${fieldMessages.join(', ')}</li>`;
+                        }
+                        errorHtml += '</ul>';
+                    }
+                } else {
+                    errorHtml = `<i class="fas fa-exclamation-triangle me-1"></i>Có lỗi xảy ra: ${error}`;
+                }
+                
+                errorContainer.innerHTML = errorHtml;
+                errorContainer.style.display = 'block';
+            })
+            .finally(() => {
+                // Re-enable button
+                updateButton.disabled = false;
+                updateButton.innerHTML = '<i class="fas fa-save me-1"></i>Cập nhật';
+            });
+        });
+    } else {
+        console.error("❌ Required elements not found");
+    }
+});
+</script>
+{% endblock %}

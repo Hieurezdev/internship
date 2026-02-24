@@ -1,0 +1,761 @@
+{% extends 'accounts/base.html' %}
+
+{% block title %}Đăng ký - WoxionChat{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        /* background: linear-gradient(-45deg, #c9fac0, #91e8ae, #78d3b9, #d5eef4) !important; */
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    }
+    
+    .register-container {
+        min-height: calc(100vh - 80px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+    }
+    
+    .register-card {
+        background: white;
+        border-radius: 24px;
+        padding: 48px;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+        border: 1px solid #f1f5f9;
+        position: relative;
+        overflow: hidden;
+        animation: slideInUp 0.8s ease-out;
+    }
+    
+    .register-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .bot-logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 24px;
+        font-size: 2rem;
+        animation: float 3s ease-in-out infinite;
+        box-shadow: 0 8px 25px rgba(16, 163, 127, 0.3);
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+    
+    .register-title {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 8px;
+        letter-spacing: -0.02em;
+    }
+    
+    .register-subtitle {
+        text-align: center;
+        color: #6b7280;
+        margin-bottom: 32px;
+        font-size: 1rem;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .form-group {
+        margin-bottom: 24px;
+        position: relative;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.9rem;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 16px 20px 16px 50px;
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+        box-sizing: border-box;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #10a37f;
+        box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.1);
+        background: white;
+    }
+    
+    .form-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6b7280;
+        font-size: 1.1rem;
+    }
+    
+    .password-toggle {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 1.1rem;
+        padding: 4px;
+        transition: color 0.3s ease;
+    }
+    
+    .password-toggle:hover {
+        color: #10a37f;
+    }
+    
+    .password-strength {
+        margin-top: 8px;
+        height: 4px;
+        background: #e2e8f0;
+        border-radius: 2px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .password-strength-bar {
+        height: 100%;
+        border-radius: 2px;
+        transition: all 0.3s ease;
+        width: 0%;
+    }
+    
+    .password-strength-bar.weak {
+        background: #dc2626;
+        width: 25%;
+    }
+    
+    .password-strength-bar.fair {
+        background: #f59e0b;
+        width: 50%;
+    }
+    
+    .password-strength-bar.good {
+        background: #22c55e;
+        width: 75%;
+    }
+    
+    .password-strength-bar.strong {
+        background: #10a37f;
+        width: 100%;
+    }
+    
+    .password-strength-text {
+        font-size: 0.8rem;
+        margin-top: 4px;
+        font-weight: 500;
+    }
+    
+    .password-strength-text.weak { color: #dc2626; }
+    .password-strength-text.fair { color: #f59e0b; }
+    .password-strength-text.good { color: #22c55e; }
+    .password-strength-text.strong { color: #10a37f; }
+    
+    .register-btn {
+        width: 100%;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        border: none;
+        color: white;
+        padding: 16px 24px;
+        border-radius: 16px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .register-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+    
+    .register-btn:hover::before {
+        left: 100%;
+    }
+    
+    .register-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(16, 163, 127, 0.4);
+    }
+    
+    .register-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .loading-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid transparent;
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .login-link {
+        text-align: center;
+        color: #6b7280;
+        font-size: 0.95rem;
+    }
+    
+    .login-link a {
+        color: #10a37f;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.3s ease;
+    }
+    
+    .login-link a:hover {
+        color: #059669;
+    }
+    
+    .error-message {
+        background: #fef2f2;
+        color: #dc2626;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1px solid #fecaca;
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: shake 0.5s ease-in-out;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+    
+    .success-message {
+        background: #f0fdf4;
+        color: #16a34a;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1px solid #bbf7d0;
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .field-error {
+        color: #dc2626;
+        font-size: 0.8rem;
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .form-tips {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .form-tips h6 {
+        color: #16a34a;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .tips-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .tips-list li {
+        color: #059669;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .tips-list li::before {
+        content: '✓';
+        color: #16a34a;
+        font-weight: bold;
+    }
+    
+    /* Form validation styles */
+    .form-control.error {
+        border-color: #dc2626;
+        background: #fef2f2;
+    }
+    
+    .form-control.success {
+        border-color: #16a34a;
+        background: #f0fdf4;
+    }
+    
+    .success-checkmark {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #16a34a;
+        font-size: 1.1rem;
+        animation: checkmarkPop 0.3s ease-out;
+    }
+    
+    @keyframes checkmarkPop {
+        0% { transform: translateY(-50%) scale(0); }
+        100% { transform: translateY(-50%) scale(1); }
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .register-card {
+            padding: 32px 24px;
+            border-radius: 16px;
+            margin: 20px;
+        }
+        
+        .register-title {
+            font-size: 1.75rem;
+        }
+        
+        .register-container {
+            padding: 20px;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+        
+        .form-control {
+            padding: 14px 16px 14px 45px;
+        }
+    }
+</style>
+
+<div class="register-container">
+    <div class="register-card">
+        <div class="bot-logo">
+            <i class="fas fa-robot"></i>
+        </div>
+        
+        <h1 class="register-title">Tạo tài khoản mới</h1>
+        <p class="register-subtitle">Tham gia WoxionChat và khám phá trải nghiệm AI</p>
+        
+        <!-- Display messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="{% if message.tags == 'error' %}error-message{% else %}success-message{% endif %}">
+                    <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% else %}check-circle{% endif %}"></i>
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        <!-- Form Tips -->
+        <div class="form-tips">
+            <h6>
+                <i class="fas fa-lightbulb"></i>
+                Thông tin cần thiết
+            </h6>
+            <ul class="tips-list">
+                <li>Mật khẩu ít nhất 8 ký tự</li>
+                <li>Bao gồm chữ hoa, chữ thường và số</li>
+                <li>Email hợp lệ để nhận thông báo</li>
+                <li>Tên đăng nhập không có khoảng trắng</li>
+            </ul>
+        </div>
+        
+        <form method="post" id="registerForm">
+            {% csrf_token %}
+            
+            <!-- Name Fields -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="id_first_name" class="form-label">Tên</label>
+                    <div style="position: relative;">
+                        <i class="fas fa-user form-icon"></i>
+                        {{ form.first_name }}
+                        <div class="success-checkmark" id="firstName-check" style="display: none;">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    </div>
+                    {% if form.first_name.errors %}
+                        <div class="field-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {{ form.first_name.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_last_name" class="form-label">Họ</label>
+                    <div style="position: relative;">
+                        <i class="fas fa-user form-icon"></i>
+                        {{ form.last_name }}
+                        <div class="success-checkmark" id="lastName-check" style="display: none;">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    </div>
+                    {% if form.last_name.errors %}
+                        <div class="field-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {{ form.last_name.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Username Field -->
+            <div class="form-group">
+                <label for="id_username" class="form-label">Tên đăng nhập</label>
+                <div style="position: relative;">
+                    <i class="fas fa-at form-icon"></i>
+                    {{ form.username }}
+                    <div class="success-checkmark" id="username-check" style="display: none;">
+                        <i class="fas fa-check"></i>
+                    </div>
+                </div>
+                {% if form.username.errors %}
+                    <div class="field-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {{ form.username.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Email Field -->
+            <div class="form-group">
+                <label for="id_email" class="form-label">Email</label>
+                <div style="position: relative;">
+                    <i class="fas fa-envelope form-icon"></i>
+                    {{ form.email }}
+                    <div class="success-checkmark" id="email-check" style="display: none;">
+                        <i class="fas fa-check"></i>
+                    </div>
+                </div>
+                {% if form.email.errors %}
+                    <div class="field-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {{ form.email.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Password Fields -->
+            <div class="form-group">
+                <label for="id_password1" class="form-label">Mật khẩu</label>
+                <div style="position: relative;">
+                    <i class="fas fa-lock form-icon"></i>
+                    {{ form.password1 }}
+                    <button type="button" class="password-toggle" onclick="togglePassword('id_password1', 'passwordToggleIcon1')">
+                        <i class="fas fa-eye" id="passwordToggleIcon1"></i>
+                    </button>
+                </div>
+                <div class="password-strength">
+                    <div class="password-strength-bar" id="strengthBar"></div>
+                </div>
+                <div class="password-strength-text" id="strengthText"></div>
+                {% if form.password1.errors %}
+                    <div class="field-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {{ form.password1.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="id_password2" class="form-label">Xác nhận mật khẩu</label>
+                <div style="position: relative;">
+                    <i class="fas fa-lock form-icon"></i>
+                    {{ form.password2 }}
+                    <button type="button" class="password-toggle" onclick="togglePassword('id_password2', 'passwordToggleIcon2')">
+                        <i class="fas fa-eye" id="passwordToggleIcon2"></i>
+                    </button>
+                    <div class="success-checkmark" id="password2-check" style="display: none;">
+                        <i class="fas fa-check"></i>
+                    </div>
+                </div>
+                {% if form.password2.errors %}
+                    <div class="field-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {{ form.password2.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <button type="submit" class="register-btn" id="registerButton">
+                <span id="registerButtonText">
+                    <i class="fas fa-user-plus"></i>
+                    Tạo tài khoản
+                </span>
+                <div class="loading-spinner" style="display: none;" id="loadingSpinner"></div>
+            </button>
+        </form>
+        
+        <div class="login-link">
+            Đã có tài khoản? <a href="{% url 'login' %}">Đăng nhập ngay</a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registerForm');
+    const registerButton = document.getElementById('registerButton');
+    const registerButtonText = document.getElementById('registerButtonText');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    
+    // Form submission handling
+    form.addEventListener('submit', function(e) {
+        registerButton.disabled = true;
+        registerButtonText.style.display = 'none';
+        loadingSpinner.style.display = 'block';
+        
+        // Re-enable button after a delay if form doesn't submit
+        setTimeout(function() {
+            if (registerButton.disabled) {
+                registerButton.disabled = false;
+                registerButtonText.style.display = 'flex';
+                loadingSpinner.style.display = 'none';
+            }
+        }, 5000);
+    });
+    
+    // Real-time form validation
+    const firstNameField = document.getElementById('id_first_name');
+    const lastNameField = document.getElementById('id_last_name');
+    const usernameField = document.getElementById('id_username');
+    const emailField = document.getElementById('id_email');
+    const password1Field = document.getElementById('id_password1');
+    const password2Field = document.getElementById('id_password2');
+    
+    // First name validation
+    firstNameField.addEventListener('input', function() {
+        const check = document.getElementById('firstName-check');
+        if (this.value.length >= 2) {
+            this.classList.remove('error');
+            this.classList.add('success');
+            check.style.display = 'block';
+        } else {
+            this.classList.remove('success', 'error');
+            check.style.display = 'none';
+        }
+    });
+    
+    // Last name validation
+    lastNameField.addEventListener('input', function() {
+        const check = document.getElementById('lastName-check');
+        if (this.value.length >= 2) {
+            this.classList.remove('error');
+            this.classList.add('success');
+            check.style.display = 'block';
+        } else {
+            this.classList.remove('success', 'error');
+            check.style.display = 'none';
+        }
+    });
+    
+    // Username validation
+    usernameField.addEventListener('input', function() {
+        const check = document.getElementById('username-check');
+        const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
+        if (usernameRegex.test(this.value)) {
+            this.classList.remove('error');
+            this.classList.add('success');
+            check.style.display = 'block';
+        } else {
+            this.classList.remove('success', 'error');
+            check.style.display = 'none';
+        }
+    });
+    
+    // Email validation
+    emailField.addEventListener('input', function() {
+        const check = document.getElementById('email-check');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailRegex.test(this.value)) {
+            this.classList.remove('error');
+            this.classList.add('success');
+            check.style.display = 'block';
+        } else {
+            this.classList.remove('success', 'error');
+            check.style.display = 'none';
+        }
+    });
+    
+    // Password strength indicator
+    password1Field.addEventListener('input', function() {
+        const password = this.value;
+        const strengthBar = document.getElementById('strengthBar');
+        const strengthText = document.getElementById('strengthText');
+        
+        const strength = calculatePasswordStrength(password);
+        
+        // Reset classes
+        strengthBar.className = 'password-strength-bar';
+        strengthText.className = 'password-strength-text';
+        
+        if (password.length === 0) {
+            strengthBar.classList.add('');
+            strengthText.textContent = '';
+            return;
+        }
+        
+        switch(strength) {
+            case 1:
+                strengthBar.classList.add('weak');
+                strengthText.classList.add('weak');
+                strengthText.textContent = 'Mật khẩu yếu';
+                break;
+            case 2:
+                strengthBar.classList.add('fair');
+                strengthText.classList.add('fair');
+                strengthText.textContent = 'Mật khẩu trung bình';
+                break;
+            case 3:
+                strengthBar.classList.add('good');
+                strengthText.classList.add('good');
+                strengthText.textContent = 'Mật khẩu tốt';
+                break;
+            case 4:
+                strengthBar.classList.add('strong');
+                strengthText.classList.add('strong');
+                strengthText.textContent = 'Mật khẩu mạnh';
+                break;
+        }
+    });
+    
+    // Password confirmation validation
+    password2Field.addEventListener('input', function() {
+        const check = document.getElementById('password2-check');
+        if (this.value === password1Field.value && this.value.length > 0) {
+            this.classList.remove('error');
+            this.classList.add('success');
+            check.style.display = 'block';
+        } else {
+            this.classList.remove('success', 'error');
+            check.style.display = 'none';
+        }
+    });
+});
+
+function calculatePasswordStrength(password) {
+    let score = 0;
+    
+    // Length check
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    
+    // Lowercase
+    if (/[a-z]/.test(password)) score++;
+    
+    // Uppercase  
+    if (/[A-Z]/.test(password)) score++;
+    
+    // Numbers
+    if (/[0-9]/.test(password)) score++;
+    
+    // Special characters
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    
+    // Return strength level (1-4)
+    if (score <= 2) return 1;
+    if (score <= 3) return 2;
+    if (score <= 4) return 3;
+    return 4;
+}
+
+function togglePassword(fieldId, iconId) {
+    const passwordField = document.getElementById(fieldId);
+    const toggleIcon = document.getElementById(iconId);
+    
+    if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passwordField.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+</script>
+{% endblock %} 

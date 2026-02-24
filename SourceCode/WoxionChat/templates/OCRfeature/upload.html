@@ -1,0 +1,690 @@
+{% extends "accounts/base.html" %}
+{% load static %}
+
+{% block title %}Tải nguồn lên - WoxionChat{% endblock %}
+
+{% block content %}
+{% if not request.session.is_authenticated %}
+<!-- Authentication Required Message -->
+<div class="container-fluid mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card bg-dark text-white border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lock"></i> Yêu cầu đăng nhập
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <i class="fas fa-user-slash fa-4x text-warning mb-3"></i>
+                    <h4>Bạn cần đăng nhập</h4>
+                    <p class="text-muted">Để sử dụng tính năng tải file lên và OCR, vui lòng đăng nhập vào tài khoản của bạn.</p>
+                    <div class="mt-4">
+                        <a href="{% url 'login' %}?next={% url 'OCRfeature:upload_file' %}" class="btn btn-warning btn-lg me-3">
+                            <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                        </a>
+                        <a href="{% url 'register' %}" class="btn btn-outline-light btn-lg">
+                            <i class="fas fa-user-plus"></i> Đăng ký
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<!-- Upload Interface for Authenticated Users -->
+<style>
+    /* Modal Overlay */
+    .upload-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+    }
+
+    /* Main Modal Container */
+    .upload-modal {
+        background: #1a1a1a;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 640px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        animation: slideUp 0.4s ease;
+        position: relative;
+    }
+
+    /* Modal Header */
+    .upload-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px 32px 16px;
+        border-bottom: 1px solid #333;
+    }
+
+    .modal-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: white;
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .modal-icon {
+        width: 24px;
+        height: 24px;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .modal-close:hover {
+        background: #333;
+        color: white;
+    }
+
+    /* Upload Area */
+    .upload-content {
+        padding: 32px;
+    }
+
+    .upload-drop-zone {
+        border: 2px dashed #444;
+        border-radius: 12px;
+        padding: 48px 32px;
+        text-align: center;
+        background: #252525;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .upload-drop-zone:hover,
+    .upload-drop-zone.dragover {
+        border-color: #10a37f;
+        background: #1a2f2a;
+        transform: translateY(-2px);
+    }
+
+    .upload-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 24px;
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        color: white;
+    }
+
+    .upload-text {
+        color: white;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .upload-subtext {
+        color: #888;
+        font-size: 14px;
+        margin-bottom: 24px;
+    }
+
+    .upload-formats {
+        color: #666;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    /* File Input */
+    .file-input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    /* Title Input */
+    .title-section {
+        margin-bottom: 24px;
+    }
+
+    .title-input {
+        width: 100%;
+        padding: 16px;
+        background: #333;
+        border: 1px solid #444;
+        border-radius: 8px;
+        color: white;
+        font-size: 16px;
+        transition: all 0.2s ease;
+    }
+
+    .title-input:focus {
+        outline: none;
+        border-color: #10a37f;
+        background: #2a2a2a;
+    }
+
+    .title-input::placeholder {
+        color: #666;
+    }
+
+    /* Source Tabs */
+    .source-tabs {
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid #333;
+    }
+
+    .tabs-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .tab-item {
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 16px;
+        color: white;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+    }
+
+    .tab-item:hover {
+        background: #333;
+        border-color: #10a37f;
+        color: white;
+        text-decoration: none;
+    }
+
+    .tab-icon {
+        width: 20px;
+        height: 20px;
+        color: #10a37f;
+    }
+
+    /* Action Buttons */
+    .upload-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid #333;
+    }
+
+    .btn-cancel {
+        background: #444;
+        border: 1px solid #555;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn-cancel:hover {
+        background: #555;
+        color: white;
+    }
+
+    .btn-upload {
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        disabled: true;
+    }
+
+    .btn-upload:hover:not(:disabled) {
+        background: linear-gradient(135deg, #0d8f69, #12a374);
+        transform: translateY(-1px);
+    }
+
+    .btn-upload:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* File Preview */
+    .file-preview {
+        background: #2a2a2a;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 16px;
+        display: none;
+    }
+
+    .file-preview.active {
+        display: block;
+    }
+
+    .file-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: white;
+    }
+
+    .file-icon {
+        width: 40px;
+        height: 40px;
+        background: #10a37f;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+
+    .file-details h4 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .file-details p {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: #888;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(50px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .upload-modal {
+            width: 95%;
+            margin: 20px;
+        }
+
+        .upload-modal-header,
+        .upload-content {
+            padding: 24px 20px;
+        }
+
+        .upload-drop-zone {
+            padding: 32px 20px;
+        }
+
+        .tabs-nav {
+            grid-template-columns: 1fr;
+        }
+
+        .upload-actions {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<div class="upload-modal-overlay" id="uploadModal">
+    <div class="upload-modal">
+        <!-- Header -->
+        <div class="upload-modal-header">
+            <h1 class="modal-title">
+                <div class="modal-icon">
+                    <i class="fas fa-upload"></i>
+                </div>
+                {% if from_chat %}
+                    Tải file để chat
+                {% else %}
+                    Tải nguồn lên
+                {% endif %}
+            </h1>
+            <button type="button" class="modal-close" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="upload-content">
+            {% if from_chat %}
+                <div style="background: #1a2f2a; border: 1px solid #10a37f; border-radius: 8px; padding: 16px; margin-bottom: 24px; color: #10a37f;">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Chat với file:</strong> Sau khi tải lên, bạn sẽ được chuyển đến giao diện chat để trò chuyện về nội dung file này.
+                </div>
+            {% endif %}
+            
+            <form id="uploadForm" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% if from_chat %}
+                    <input type="hidden" name="redirect_to_chat" value="true">
+                {% endif %}
+                
+                <!-- Title Input -->
+                <div class="title-section">
+                    <input type="text" 
+                           name="title" 
+                           class="title-input" 
+                           placeholder="Tiêu đề tài liệu (tùy chọn)"
+                           id="titleInput">
+                </div>
+
+                <!-- Upload Drop Zone -->
+                <div class="upload-drop-zone" id="dropZone">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <div class="upload-text">Kéo và thả hoặc chọn tệp để tải lên</div>
+                    <div class="upload-subtext">Chọn tệp từ thiết bị của bạn</div>
+                    <div class="upload-formats">
+                        Các loại tệp được hỗ trợ: PDF, txt, Markdown, DOCX, .png, .jpg, .jpeg
+                    </div>
+                    <input type="file" 
+                           name="file" 
+                           class="file-input" 
+                           id="fileInput"
+                           accept=".pdf,.txt,.md,.docx,.png,.jpg,.jpeg"
+                           required>
+                </div>
+
+                <!-- File Preview -->
+                <div class="file-preview" id="filePreview">
+                    <div class="file-info">
+                        <div class="file-icon">
+                            <i class="fas fa-file" id="fileTypeIcon"></i>
+                        </div>
+                        <div class="file-details">
+                            <h4 id="fileName">Tên file</h4>
+                            <p id="fileSize">Kích thước file</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Source Options -->
+                <div class="source-tabs">
+                    <div class="tabs-nav">
+                        <div class="tab-item" onclick="showComingSoon('Google Drive')">
+                            <i class="fab fa-google-drive tab-icon"></i>
+                            <span>Google Drive</span>
+                        </div>
+                        <div class="tab-item" onclick="showComingSoon('Google Docs')">
+                            <i class="fas fa-file-alt tab-icon"></i>
+                            <span>Google Tài liệu</span>
+                        </div>
+                        <div class="tab-item" onclick="showComingSoon('Google Slides')">
+                            <i class="fas fa-file-powerpoint tab-icon"></i>
+                            <span>Google Trang trình bày</span>
+                        </div>
+                        <div class="tab-item" onclick="showComingSoon('Web/YouTube')">
+                            <i class="fas fa-link tab-icon"></i>
+                            <span>Liên kết</span>
+                        </div>
+                        <div class="tab-item" onclick="showComingSoon('Paste Text')">
+                            <i class="fas fa-clipboard tab-icon"></i>
+                            <span>Dán văn bản</span>
+                        </div>
+                        <div class="tab-item" onclick="showComingSoon('Copied Text')">
+                            <i class="fas fa-copy tab-icon"></i>
+                            <span>Văn bản đã sao chép</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="upload-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">
+                        Hủy
+                    </button>
+                    <button type="submit" class="btn-upload" id="uploadBtn" disabled>
+                        <i class="fas fa-upload"></i>
+                        Tải lên
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const filePreview = document.getElementById('filePreview');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const titleInput = document.getElementById('titleInput');
+    const uploadForm = document.getElementById('uploadForm');
+    
+    let isUploading = false; // Prevent double submission
+
+    // Click on drop zone to open file picker
+    dropZone.addEventListener('click', function(e) {
+        if (e.target === fileInput) return; // Don't trigger if clicking on file input directly
+        fileInput.click();
+    });
+
+    // File input change handler
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+
+    // Drag and drop handlers
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            // Set files to input and trigger change
+            fileInput.files = files;
+            handleFileSelect(files[0]);
+        }
+    });
+
+    // Form submission
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Prevent double submission
+        if (isUploading) {
+            console.log('Upload already in progress, ignoring...');
+            return;
+        }
+        
+        if (!fileInput.files[0]) {
+            alert('Vui lòng chọn file để tải lên');
+            return;
+        }
+
+        isUploading = true;
+        const formData = new FormData(uploadForm);
+        
+        // Update button state
+        const originalButtonContent = uploadBtn.innerHTML;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải lên...';
+        uploadBtn.disabled = true;
+
+        fetch('{% url "OCRfeature:upload_file" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Success - redirect to the specified URL
+                window.location.href = data.redirect_url || '{% url "OCRfeature:ocr_home" %}';
+            } else {
+                throw new Error(data.error || 'Upload failed');
+            }
+        })
+        .catch(error => {
+            console.error('Upload error:', error);
+            
+            // Reset upload state
+            isUploading = false;
+            uploadBtn.innerHTML = originalButtonContent;
+            uploadBtn.disabled = false;
+            
+            // Show user-friendly error message
+            let errorMessage = 'Có lỗi xảy ra khi tải file lên';
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.';
+            } else if (error.message.includes('HTTP')) {
+                errorMessage = 'Lỗi server: ' + error.message;
+            } else {
+                errorMessage = error.message;
+            }
+            
+            alert('Lỗi tải file: ' + errorMessage);
+        });
+    });
+
+    function handleFileSelect(file) {
+        if (!file) return;
+
+        // Show file preview
+        filePreview.classList.add('active');
+        
+        // Update file info
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = formatFileSize(file.size);
+        
+        // Update file icon based on type
+        const icon = getFileIcon(file.name);
+        document.getElementById('fileTypeIcon').className = icon;
+        
+        // Generate title if empty
+        if (!titleInput.value.trim()) {
+            const title = generateTitleFromFilename(file.name);
+            titleInput.value = title;
+        }
+        
+        // Enable upload button
+        uploadBtn.disabled = false;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function getFileIcon(filename) {
+        const ext = filename.toLowerCase().split('.').pop();
+        switch (ext) {
+            case 'pdf': return 'fas fa-file-pdf';
+            case 'doc':
+            case 'docx': return 'fas fa-file-word';
+            case 'txt': return 'fas fa-file-alt';
+            case 'png':
+            case 'jpg':
+            case 'jpeg': return 'fas fa-file-image';
+            default: return 'fas fa-file';
+        }
+    }
+
+    function generateTitleFromFilename(filename) {
+        const nameWithoutExt = filename.split('.').slice(0, -1).join('.');
+        return nameWithoutExt.replace(/[_-]/g, ' ')
+                           .replace(/\b\w/g, l => l.toUpperCase())
+                           .substring(0, 100);
+    }
+});
+
+function closeModal() {
+    window.location.href = '{% url "OCRfeature:ocr_home" %}';
+}
+
+function showComingSoon(feature) {
+    alert(`${feature} sẽ có sẵn trong phiên bản tiếp theo!`);
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+
+// Close modal on background click
+document.getElementById('uploadModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+</script>
+
+{% endif %}
+{% endblock %} 

@@ -1,0 +1,462 @@
+{% extends "accounts/base.html" %}
+{% load static %}
+
+{% block title %}Danh sách file - OCR Feature{% endblock %}
+
+{% block content %}
+<style>
+    .files-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+        border-radius: 16px;
+        padding: 40px;
+        text-align: center;
+        color: white;
+        margin-bottom: 32px;
+        position: relative;
+        
+        box-shadow: 
+            0 20px 60px rgba(16, 185, 129, 0.3),
+            0 8px 25px rgba(15, 183, 127, 0.2);
+    }
+    .files-header::before{
+        content: '';
+        position: absolute;
+        top:  0%;     /* Mở rộng ra ngoài container */
+        left: 0%;    /* Mở rộng ra ngoài container */
+        width: 100%;   /* Gấp đôi kích thước để che phủ toàn bộ */
+        height: 100%;  /* Gấp đôi kích thước để che phủ toàn bộ */
+    }
+
+    @keyframes rotate-light {
+        0% { 
+            transform: rotate(0deg);   /* Bắt đầu ở 0 độ */
+        }
+        100% { 
+            transform: rotate(360deg); /* Xoay một vòng tròn hoàn chỉnh */
+        }
+    }
+
+
+    .files-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+    }
+
+    .files-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+
+    .files-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .search-box {
+        border-radius: 100% !important;
+        position: relative;
+        flex: 1;
+        max-width: 400px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 12px 16px 12px 48px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 16px;
+        transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+        border-color: #10a37f;
+        box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.1);
+        outline: none;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6b7280;
+        font-size: 18px;
+    }
+
+    .upload-link {
+        background: linear-gradient(135deg, #10a37f, #15b887);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .upload-link:hover {
+        background: linear-gradient(135deg, #0d8f69, #12a374);
+        color: white;
+        text-decoration: none;
+        transform: translateY(-2px);
+    }
+
+    .files-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+    }
+
+    .file-card {
+        background: rgb(255, 255, 255);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .file-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 16px 50px rgba(0, 0, 0, 0.25);
+    }
+
+    .file-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        font-weight: 375;
+    }
+
+    .file-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+    }
+
+    .file-icon.pdf {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+
+    .file-icon.docx {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    }
+
+    .file-icon.txt {
+        background: linear-gradient(135deg, #6b7280, #4b5563);
+    }
+
+    .file-icon.image {
+        background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .file-icon.default {
+        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    }
+
+    .file-info h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1f2937;
+        line-height: 1.4;
+    }
+
+    .file-info p {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: #6b7280;
+    }
+
+    .file-meta {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
+        padding: 16px;
+        background: #ffffff;
+        border-radius: 10px;
+        border: #10a37f solid 1px;
+    }
+
+    .meta-item {
+        text-align: center;
+    }
+
+    .meta-label {
+        font-size: 12px;
+        color: #6b7280;
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .meta-value {
+        font-size: 14px;
+        color: #1f2937;
+        font-weight: 600;
+    }
+
+    .file-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 375;
+        transition: all 0.2s ease;
+        flex: 1;
+        text-align: center;
+        border: 1px solid;
+    }
+
+    .btn-view {
+        background: #10a37f;
+        color: white;
+        border-color: #10a37f;
+    }
+
+    .btn-view:hover {
+        background: #0d8f69;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-ocr {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
+
+    .btn-ocr:hover {
+        background: #1d4ed8;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-download {
+        background: #6b7280;
+        color: white;
+        border-color: #6b7280;
+    }
+
+    .btn-download:hover {
+        background: #4b5563;
+        color: white;
+        text-decoration: none;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 80px 40px;
+        color: #6b7280;
+    }
+
+    .empty-icon {
+        font-size: 64px;
+        margin-bottom: 24px;
+        color: #d1d5db;
+    }
+
+    .empty-title {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: #374151;
+    }
+
+    .empty-text {
+        font-size: 16px;
+        margin-bottom: 32px;
+        line-height: 1.6;
+    }
+
+    .file-status {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-uploaded {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .status-processing {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .files-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .files-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-box {
+            max-width: none;
+        }
+
+        .files-title {
+            font-size: 2rem;
+        }
+
+        .files-header {
+            padding: 32px 24px;
+        }
+    }
+</style>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="files-header">
+        <h1 class="files-title">
+            <i class="fas fa-folder"></i>
+            Danh sách file
+        </h1>
+        <p class="files-subtitle">Quản lý và xử lý các file đã tải lên</p>
+    </div>
+
+    <!-- Actions -->
+    <div class="files-actions">
+        <div class="search-box">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-input" placeholder="Tìm kiếm file..." id="searchInput">
+        </div>
+        <a href="{% url 'OCRfeature:upload_file' %}" class="upload-link">
+            <i class="fas fa-plus"></i>
+            Tải file mới
+        </a>
+    </div>
+
+    <!-- Files Grid -->
+    {% if files %}
+        <div class="files-grid" id="filesGrid">
+            {% for file in files %}
+            <div class="file-card" data-title="{{ file.title|lower }}" data-filename="{{ file.filename|lower }}">
+                <!-- <div class="file-status status-uploaded">
+                    Đã tải lên
+                </div> -->
+                
+                <div class="file-header">
+                    <div class="file-icon {% if file.extension == '.pdf' %}pdf{% elif file.extension == '.docx' %}docx{% elif file.extension == '.txt' %}txt{% elif file.extension in '.png,.jpg,.jpeg' %}image{% else %}default{% endif %}">
+                        {% if file.extension == '.pdf' %}
+                            <i class="fas fa-file-pdf"></i>
+                        {% elif file.extension == '.docx' %}
+                            <i class="fas fa-file-word"></i>
+                        {% elif file.extension == '.txt' %}
+                            <i class="fas fa-file-alt"></i>
+                        {% elif file.extension in '.png,.jpg,.jpeg' %}
+                            <i class="fas fa-file-image"></i>
+                        {% else %}
+                            <i class="fas fa-file"></i>
+                        {% endif %}
+                    </div>
+                    <div class="file-info">
+                        <h3>{{ file.title }}</h3>
+                        <p>{{ file.filename }}</p>
+                    </div>
+                </div>
+
+                <div class="file-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Kích thước</div>
+                        <div class="meta-value">{{ file.file_size|filesizeformat }}</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Ngày tải</div>
+                        <div class="meta-value">{{ file.uploaded_at|date:"d/m/Y" }}</div>
+                    </div>
+                </div>
+
+                <div class="file-actions">
+                    <a href="{% url 'OCRfeature:file_detail' file.id %}" class="action-btn btn-view">
+                        <i class="fas fa-eye"></i>
+                        Xem
+                    </a>
+                    <!-- <a href="{% url 'OCRfeature:process_ocr' file.id %}" class="action-btn btn-ocr">
+                        <i class="fas fa-brain"></i>
+                        OCR
+                    </a> -->
+                    <a href="{% url 'OCRfeature:download_file' file.id %}" class="action-btn btn-download">
+                        <i class="fas fa-download"></i>
+                        Tải
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-folder-open"></i>
+            </div>
+            <h2 class="empty-title">Chưa có file nào</h2>
+            <p class="empty-text">
+                Bạn chưa tải lên file nào. Hãy bắt đầu bằng cách tải lên file đầu tiên để trải nghiệm tính năng OCR.
+            </p>
+            <a href="{% url 'OCRfeature:upload_file' %}" class="upload-link">
+                <i class="fas fa-cloud-upload-alt"></i>
+                Tải file đầu tiên
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const filesGrid = document.getElementById('filesGrid');
+    
+    if (searchInput && filesGrid) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const fileCards = filesGrid.querySelectorAll('.file-card');
+            
+            fileCards.forEach(card => {
+                const title = card.dataset.title || '';
+                const filename = card.dataset.filename || '';
+                
+                if (title.includes(searchTerm) || filename.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+
+{% endblock %} 

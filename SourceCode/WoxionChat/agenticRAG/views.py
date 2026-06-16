@@ -8,7 +8,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Flask service configuration
-FLASK_SERVICE_URL = "http://localhost:5002"
+import os
+FLASK_SERVICE_URL = os.environ.get("FLASK_SERVICE_URL", "http://localhost:5002")
 
 @csrf_exempt
 def proxy_to_flask(request, path):

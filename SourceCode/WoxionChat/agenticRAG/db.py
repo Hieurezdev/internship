@@ -81,8 +81,35 @@ def get_db():
         raise RuntimeError("Database is not initialized. Call init_db() first.")
     return db_client
 
-def get_embedding(text, model='models/gemini-embedding-exp-03-07'):
-    """Get embeddings for text using Google's generative AI with caching."""
+_bge_model = None
+_bge_model_lock = threading.Lock()
+
+def _get_bge_model():
+    global _bge_model
+    if _bge_model is None:
+        with _bge_model_lock:
+            if _bge_model is None:
+                try:
+                    from sentence_transformers import SentenceTransformer
+                    _bge_model = SentenceTransformer("BAAI/bge-m3")
+                except ImportError as exc:
+                    safe_log_error("Failed to import sentence-transformers for BGE-M3 fallback")
+                    raise RuntimeError("Fallback BGE-M3 requires 'sentence-transformers' package.") from exc
+    return _bge_model
+
+def _get_bge_embedding(text: str) -> list[float]:
+    prepared_text = f"task: sentence similarity | query: {text.strip()}"
+    model_instance = _get_bge_model()
+    embedding = model_instance.encode(
+        prepared_text,
+        normalize_embeddings=True,
+        convert_to_numpy=True,
+    )
+    # Truncate/slice to 768 dimensions to match Gemini index sizes in MongoDB Atlas
+    return embedding[:768].tolist()
+
+def get_embedding(text, model='models/gemini-embedding-001'):
+    """Get embeddings for text using Google's generative AI with caching, falling back to BGE-M3."""
     # Create cache key
     cache_key = hashlib.md5(f"{text}:{model}".encode()).hexdigest()
     
@@ -94,7 +121,12 @@ def get_embedding(text, model='models/gemini-embedding-exp-03-07'):
     
     try:
         start_time = time.time()
-        result = _get_genai_client().models.embed_content(model=model, contents=text)
+        from google.genai import types
+        result = _get_genai_client().models.embed_content(
+            model=model,
+            contents=text,
+            config=types.EmbedContentConfig(output_dimensionality=768)
+        )
         embedding = result.embeddings[0].values
         
         # Cache the result
@@ -111,10 +143,23 @@ def get_embedding(text, model='models/gemini-embedding-exp-03-07'):
         safe_log_info(f"Generated embedding in {embedding_time:.3f}s for: {text[:50]}...")
         return embedding
     except Exception as e:
-        safe_log_error(f"Error getting embedding: {e}", exc_info=True)
-        return None
+        safe_log_error(f"Error getting Google embedding: {e}, falling back to BGE-M3...", exc_info=True)
+        try:
+            start_time = time.time()
+            embedding = _get_bge_embedding(text)
+            
+            # Cache the fallback result
+            with _cache_lock:
+                _embedding_cache[cache_key] = embedding
+            
+            fallback_time = time.time() - start_time
+            safe_log_info(f"Generated fallback BGE-M3 embedding in {fallback_time:.3f}s for: {text[:50]}...")
+            return embedding
+        except Exception as fallback_exc:
+            safe_log_error(f"Failed to get BGE-M3 fallback embedding: {fallback_exc}", exc_info=True)
+            return None
 
-def get_embedding_batch(texts, model='models/gemini-embedding-exp-03-07'):
+def get_embedding_batch(texts, model='models/gemini-embedding-001'):
     """Get embeddings for multiple texts efficiently."""
     results = []
     uncached_texts = []
@@ -162,6 +207,68 @@ def get_embedding_batch(texts, model='models/gemini-embedding-exp-03-07'):
             safe_log_error(f"Error in batch embedding generation: {e}")
     
     return results
+
+def _regex_fallback_search(collection, query_text, uploader_username=None, limit=10):
+    import re
+    safe_log_info(f"Running regex fallback search for: '{query_text}'")
+    query_clean = query_text.strip() if query_text else ""
+    if not query_clean:
+        return []
+        
+    query_filter = {}
+    if uploader_username:
+        query_filter["uploader_username"] = uploader_username
+
+    # Attempt 1: Exact phrase match (case-insensitive)
+    try:
+        exact_filter = dict(query_filter)
+        exact_filter["content"] = {"$regex": re.escape(query_clean), "$options": "i"}
+        results = list(collection.find(exact_filter).limit(limit))
+        if results:
+            safe_log_info(f"Regex exact match found {len(results)} docs")
+            return [{
+                '_id': doc['_id'],
+                'content': doc.get('content', ''),
+                'uploader_username': doc.get('uploader_username', ''),
+                'score': 0.5
+            } for doc in results]
+    except Exception as e:
+        safe_log_error(f"Regex exact match failed: {e}")
+
+    # Attempt 2: Match any of the important keywords
+    try:
+        words = [w for w in re.split(r'\s+', query_clean) if len(w) > 2]
+        if words:
+            pattern = "|".join([re.escape(w) for w in words])
+            keyword_filter = dict(query_filter)
+            keyword_filter["content"] = {"$regex": pattern, "$options": "i"}
+            results = list(collection.find(keyword_filter).limit(limit))
+            if results:
+                safe_log_info(f"Regex keyword match found {len(results)} docs")
+                return [{
+                    '_id': doc['_id'],
+                    'content': doc.get('content', ''),
+                    'uploader_username': doc.get('uploader_username', ''),
+                    'score': 0.3
+                } for doc in results]
+    except Exception as e:
+        safe_log_error(f"Regex keyword match failed: {e}")
+        
+    # Attempt 3: Return any recent documents as last resort
+    try:
+        results = list(collection.find(query_filter).limit(limit))
+        if results:
+            safe_log_info(f"Regex last resort returned {len(results)} docs")
+            return [{
+                '_id': doc['_id'],
+                'content': doc.get('content', ''),
+                'uploader_username': doc.get('uploader_username', ''),
+                'score': 0.1
+            } for doc in results]
+    except Exception as e:
+        safe_log_error(f"Regex last resort failed: {e}")
+        
+    return []
 
 def find_similar_documents_hybrid_search(
     query_vector: list[float],
@@ -310,39 +417,18 @@ def find_similar_documents_hybrid_search(
         
         # Return top results
         final_results = merged_results[:limit]
-        safe_log_info(f"Hybrid search final results: {len(final_results)} documents")
         
+        if not final_results:
+            safe_log_info("Atlas Search returned 0 results. Triggering regex fallback search...")
+            return _regex_fallback_search(collection, search_query, uploader_username, limit)
+            
+        safe_log_info(f"Hybrid search final results: {len(final_results)} documents")
         return final_results
         
     except Exception as e:
         safe_log_error(f"Error in hybrid search: {e}", exc_info=True)
-        
-        # Fallback: Simple text search without vector
-        try:
-            fallback_results = list(collection.find(
-                {
-                    "uploader_username": uploader_username,
-                    "$text": {"$search": search_query}
-                }
-            ).limit(limit))
-            
-            safe_log_info(f"Fallback search returned {len(fallback_results)} results")
-            
-            # Format fallback results
-            formatted_results = []
-            for doc in fallback_results:
-                formatted_results.append({
-                    '_id': doc['_id'],
-                    'content': doc.get('content', ''),
-                    'uploader_username': doc.get('uploader_username', ''),
-                    'score': 0.5  # Default score for fallback
-                })
-            
-            return formatted_results
-            
-        except Exception as fallback_error:
-            safe_log_error(f"Fallback search also failed: {fallback_error}")
-            return []
+        safe_log_info("Triggering regex fallback search due to exception...")
+        return _regex_fallback_search(collection, search_query, uploader_username, limit)
 
 def find_similar_documents_vector_search(
     query_vector: list[float],
@@ -378,6 +464,17 @@ def find_similar_documents_vector_search(
 
     try:
         results = list(collection.aggregate(pipeline))
+        
+        if not results:
+            safe_log_info("Admin vector search returned 0 results. Triggering fallback list...")
+            fallback_results = list(collection.find({}).limit(limit))
+            return [{
+                '_id': doc['_id'],
+                'content': doc.get('content', ''),
+                'uploader_username': doc.get('uploader_username', ''),
+                'score': 0.5
+            } for doc in fallback_results]
+            
         safe_log_info(f"Admin vector search returned {len(results)} results")
         return results
         

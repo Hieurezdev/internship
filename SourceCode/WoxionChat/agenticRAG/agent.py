@@ -381,10 +381,21 @@ Reference context:
         else:
              messages.append(context_message)
         
+        # Retrieve relevant ACE playbook guidelines
+        try:
+            from .ace_integration import get_ace_context
+            playbook_guidelines = get_ace_context(state['input'], user_id=state['user_id'], top_k=10)
+        except Exception as e:
+            logger.error(f"Error retrieving ACE playbook: {e}")
+            playbook_guidelines = ""
+
         # Simple system prompt with user ID emphasis
         system_prompt = f"""User ID: {state['user_id']} - User is already identified. Do not ask for identification.
 
 {LANGGRAPH_AGENT_PROMPT_SYSTEM}"""
+
+        if playbook_guidelines:
+            system_prompt += f"\n\n=== ACE PLAYBOOK GUIDELINES ===\n{playbook_guidelines}"
         
         # Add basic user preferences if available
         if state.get('user_preferences'):
@@ -610,7 +621,14 @@ Reference context:
     
     # Both paths converge to memory save
     workflow.add_edge("direct_response", "memory_save")
-    workflow.add_edge("agent", "memory_save")
+    workflow.add_conditional_edges(
+        "agent",
+        decide_next_step,
+        {
+            "take_action": "action_node",
+            "save_memory": "memory_save"
+        }
+    )
     workflow.add_edge("memory_save", END)
 
     return workflow.compile() 

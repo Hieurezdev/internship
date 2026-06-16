@@ -27,7 +27,7 @@ from langchain_openai import ChatOpenAI
 _agent_graph = None
 
 
-def get_agent_graph():
+def get_agent_graph():  
     """Return the compiled LangGraph agent (set during startup lifespan)."""
     return _agent_graph
 
@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
     try:
         # 1. Google Gemini—used for RAG answering and tool-calls
         gemini_llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             temperature=0.3,
             max_tokens=None,
             timeout=180,
@@ -105,8 +105,9 @@ async def lifespan(app: FastAPI):
             direct_response,
             classify_query_type,
         ]
-        _agent_graph = create_agent_graph(model_registry, tools)
-        logger.info("LangGraph agent compiled (multimodel: gemini + local).")
+        # Chạy ở chế độ SINGLE-MODEL (chỉ dùng Gemini) để demo theo yêu cầu
+        _agent_graph = create_agent_graph(gemini_llm, tools)
+        logger.info("LangGraph agent compiled (single-model: gemini).")
     except Exception as e:
         logger.error(f"Agent graph creation failed: {e}")
         raise

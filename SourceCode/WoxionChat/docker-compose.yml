@@ -1,0 +1,38 @@
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: WoxionChat/Dockerfile
+    container_name: woxionchat-web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+      - ../ace:/ace
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_SERVICE_URL=http://agentic-rag:5002
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  agentic-rag:
+    build:
+      context: ..
+      dockerfile: WoxionChat/Dockerfile
+    container_name: woxionchat-agentic-rag
+    environment:
+      # Lắng nghe ở 0.0.0.0 để có thể truy cập được từ bên ngoài container
+      - FASTAPI_HOST=0.0.0.0
+      - FASTAPI_PORT=5002
+    command: python run.py
+    volumes:
+      - .:/app
+      - ../ace:/ace
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    ports:
+      - "5002:5002"
+    env_file:
+      - .env
+    restart: unless-stopped

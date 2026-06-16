@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
     # Kiểm tra biến môi trường bắt buộc
     required_env_vars = ["GOOGLE_API_KEY", "MONGO_CONNECTION_STRING"]
     missing_vars = [v for v in required_env_vars if not os.environ.get(v)]

@@ -1483,6 +1483,96 @@
         margin-right: 8px;
         font-size: 0.8em; /* Kích thước icon nhỏ hơn một chút */
     }
+
+    /* === ACE PLAYBOOK & RATING STYLING === */
+    .thumbs-up-btn, .thumbs-down-btn {
+        background: rgba(255, 255, 255);
+        border: none;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+        color: #5f6368;
+        font-size: 12px;
+        margin-left: 8px;
+        flex-shrink: 0;
+    }
+    
+    .thumbs-up-btn:hover {
+        opacity: 1;
+        background: rgba(16, 163, 127, 0.2);
+        color: #10a37f;
+        transform: scale(1.1);
+    }
+    
+    .thumbs-down-btn:hover {
+        opacity: 1;
+        background: rgba(220, 53, 69, 0.2);
+        color: #dc3545;
+        transform: scale(1.1);
+    }
+    
+    .thumbs-up-btn.active {
+        background: #10a37f;
+        color: white !important;
+        opacity: 1;
+    }
+    
+    .thumbs-down-btn.active {
+        background: #dc3545;
+        color: white !important;
+        opacity: 1;
+    }
+
+    .ace-bullet-item {
+        background: #f8f9fa;
+        border-left: 4px solid #10a37f;
+        padding: 10px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .ace-bullet-item:hover {
+        background: #eef7f4;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .ace-bullet-meta {
+        font-size: 11px;
+        color: #777;
+        margin-bottom: 5px;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .ace-bullet-stats {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .ace-stat-badge {
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-weight: 500;
+        font-size: 10px;
+    }
+    
+    .ace-badge-helpful {
+        background: #e6f6f2;
+        color: #10a37f;
+    }
+    
+    .ace-badge-harmful {
+        background: #fdf2f2;
+        color: #dc3545;
+    }
 </style>
 
 <div class="notebook-layout">
@@ -1583,9 +1673,17 @@
         </div>
         <div class="studio-body">
             <div class="studio-tabs">
-                <button class="studio-tab" data-tab="notes" onclick="switchStudioTab('notes')">
+                <button class="studio-tab active" data-tab="notes" onclick="switchStudioTab('notes')">
                     <i class="fas fa-sticky-note"></i>
                     Ghi chú
+                </button>
+                <button class="studio-tab" data-tab="saved" onclick="switchStudioTab('saved')">
+                    <i class="fas fa-thumbtack"></i>
+                    Ghim
+                </button>
+                <button class="studio-tab" data-tab="ace" onclick="switchStudioTab('ace')">
+                    <i class="fas fa-brain"></i>
+                    Nhật Ký Tự Học (ACE)
                 </button>
             </div>
             
@@ -1641,6 +1739,49 @@
                     <button class="studio-clear-btn" onclick="clearAllSavedMessages()" disabled>
                         <i class="fas fa-trash"></i>
                         Xóa tất cả
+                    </button>
+                </div>
+            </div>
+
+            <!-- ACE Playbook Tab -->
+            <div class="studio-tab-content" id="aceTab" style="display: none; padding: 15px; height: calc(100% - 50px); overflow-y: auto; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <h4 style="margin: 0; font-size: 15px; color: #10a37f; font-weight: 600;"><i class="fas fa-brain"></i> Nhật Ký Tự Học (ACE)</h4>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn-refresh" onclick="loadAcePlaybook(false)" style="padding: 2px 8px; font-size: 11px; background: transparent; border: 1px solid #10a37f; color: #10a37f; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+                            <i class="fas fa-sync-alt"></i> Làm mới
+                        </button>
+                        <button class="btn-reset-default" onclick="resetAcePlaybookToDefault()" style="padding: 2px 8px; font-size: 11px; background: transparent; border: 1px solid #ff9800; color: #ff9800; border-radius: 4px; cursor: pointer; transition: all 0.2s;" title="Đặt lại cẩm nang mặc định">
+                            <i class="fas fa-magic"></i> Đặt lại mặc định
+                        </button>
+                    </div>
+                </div>
+                
+                <p style="font-size: 11px; color: #666; line-height: 1.4; margin-bottom: 12px; margin-top: 0;">
+                    ACE (Agentic Context Engineering) tự học từ phản hồi của bạn để tinh chỉnh cẩm nang quy tắc hành vi cho bot.
+                </p>
+
+                <!-- Raw / Parsed View Toggle -->
+                <div style="display: flex; gap: 8px; margin-bottom: 12px; justify-content: center; background: #f1f3f4; padding: 4px; border-radius: 6px;">
+                    <button id="btnAceParsed" class="active" onclick="toggleAceView('parsed')" style="flex: 1; border: none; background: #fff; padding: 4px 10px; font-size: 11px; font-weight: 500; border-radius: 4px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">Cấu trúc</button>
+                    <button id="btnAceRaw" onclick="toggleAceView('raw')" style="flex: 1; border: none; background: transparent; padding: 4px 10px; font-size: 11px; font-weight: 500; border-radius: 4px; cursor: pointer; color: #5f6368;">Mã nguồn (Thô)</button>
+                </div>
+
+                <!-- Parsed Bullet List View -->
+                <div id="aceParsedView">
+                    <div id="aceBulletsList" style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+                            <i class="fas fa-spinner fa-spin" style="margin-bottom: 8px; font-size: 18px; color: #10a37f; display: block;"></i>
+                            Đang tải cẩm nang...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Raw Text View -->
+                <div id="aceRawView" style="display: none;">
+                    <textarea id="aceRawTextarea" style="width: 100%; height: calc(100vh - 360px); min-height: 250px; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; resize: vertical; box-sizing: border-box; line-height: 1.4; outline: none;"></textarea>
+                    <button onclick="saveAcePlaybookText()" style="width: 100%; margin-top: 8px; background: #10a37f; color: white; border: none; border-radius: 4px; padding: 8px 12px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s;">
+                        <i class="fas fa-save"></i> Lưu Cẩm Nang
                     </button>
                 </div>
             </div>
@@ -1892,6 +2033,7 @@ let userDatabaseCache = [];
 let notificationTimeout = null;
 let ongoingChatRequest = null; // Track ongoing chat requests
 let heartbeatInterval = null;  // Keep connection alive
+let selectedUserData = null;   // Track selected user data for context
 
 // === NOTIFICATION BAR FUNCTIONS ===
 
@@ -3312,8 +3454,14 @@ Kết quả sẽ là đoạn Markdown có cấu trúc hoàn hảo, sẵn sàng �
      // Create buttons based on message type
      let buttonsHtml = '';
      if (type === 'bot') {
-         // For bot messages, show both pin and speaker buttons
+         // For bot messages, show pin, speaker, and thumbs feedback buttons
          buttonsHtml = `
+             <button class="thumbs-up-btn" onclick="sendAceFeedback('${messageId}', 'thumbs_up')" title="Hữu ích (Chạy ACE Reflector)">
+                 <i class="far fa-thumbs-up"></i>
+             </button>
+             <button class="thumbs-down-btn" onclick="showAceCorrectionForm('${messageId}')" title="Không hữu ích / Sai (Chạy ACE Curator)">
+                 <i class="far fa-thumbs-down"></i>
+             </button>
              <button class="pin-btn" onclick="toggleMessagePin('${messageId}')" title="Ghim tin nhắn">
                  <i class="fas fa-thumbtack"></i>
              </button>
@@ -3332,6 +3480,14 @@ Kết quả sẽ là đoạn Markdown có cấu trúc hoàn hảo, sẵn sàng �
      
      messageDiv.innerHTML = `
          <div class="message-content">${processedContent}</div>
+         <div id="correction-form-${messageId}" class="correction-form" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.03); border-radius: 8px; width: 100%; box-sizing: border-box;">
+             <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 5px; color: #444;">Góp ý câu trả lời đúng (ACE Curator):</label>
+             <div style="display: flex; gap: 8px;">
+                  <input type="text" id="correction-input-${messageId}" placeholder="Nhập gợi ý hoặc câu trả lời đúng..." style="flex: 1; padding: 6px 10px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; outline: none; background: #fff;">
+                  <button onclick="submitAceCorrection('${messageId}')" style="padding: 6px 12px; font-size: 12px; background: #10a37f; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Gửi</button>
+                  <button onclick="hideAceCorrectionForm('${messageId}')" style="padding: 6px 12px; font-size: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 4px; cursor: pointer;">Hủy</button>
+             </div>
+         </div>
          <div class="message-footer">
              <div class="message-time" style="align-items: center;">${timeString}</div>
              ${buttonsHtml}
@@ -4100,6 +4256,12 @@ function addBotMessageWithTypewriter(content) {
     
     // Create buttons for bot messages
     const buttonsHtml = `
+        <button class="thumbs-up-btn" onclick="sendAceFeedback('${messageId}', 'thumbs_up')" title="Hữu ích (Chạy ACE Reflector)">
+            <i class="far fa-thumbs-up"></i>
+        </button>
+        <button class="thumbs-down-btn" onclick="showAceCorrectionForm('${messageId}')" title="Không hữu ích / Sai (Chạy ACE Curator)">
+            <i class="far fa-thumbs-down"></i>
+        </button>
         <button class="pin-btn" onclick="toggleMessagePin('${messageId}')" title="Ghim tin nhắn">
             <i class="fas fa-thumbtack"></i>
         </button>
@@ -4111,6 +4273,14 @@ function addBotMessageWithTypewriter(content) {
     // Create initial message structure with empty content
     messageDiv.innerHTML = `
         <div class="message-content" id="content-${messageId}"></div>
+        <div id="correction-form-${messageId}" class="correction-form" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.03); border-radius: 8px; width: 100%; box-sizing: border-box;">
+            <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 5px; color: #444;">Góp ý câu trả lời đúng (ACE Curator):</label>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="correction-input-${messageId}" placeholder="Nhập gợi ý hoặc câu trả lời đúng..." style="flex: 1; padding: 6px 10px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; outline: none; background: #fff;">
+                <button onclick="submitAceCorrection('${messageId}')" style="padding: 6px 12px; font-size: 12px; background: #10a37f; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Gửi</button>
+                <button onclick="hideAceCorrectionForm('${messageId}')" style="padding: 6px 12px; font-size: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 4px; cursor: pointer;">Hủy</button>
+            </div>
+        </div>
         <div class="message-footer">
             <div class="message-time" style="align-items: center;">${timeString}</div>
             ${buttonsHtml}
@@ -4187,6 +4357,305 @@ function testTypewriter() {
     // Add your typewriter test logic here
     console.log('Testing typewriter effect...');
 }
+
+
+// ==================== ACE Playbook & Feedback JS ==================== //
+
+// Show the correction form for thumbs down
+function showAceCorrectionForm(messageId) {
+    const form = document.getElementById(`correction-form-${messageId}`);
+    if (form) {
+        form.style.display = 'block';
+        const input = document.getElementById(`correction-input-${messageId}`);
+        if (input) input.focus();
+    }
+}
+
+// Hide the correction form
+function hideAceCorrectionForm(messageId) {
+    const form = document.getElementById(`correction-form-${messageId}`);
+    if (form) form.style.display = 'none';
+}
+
+// Submit correction
+function submitAceCorrection(messageId) {
+    const input = document.getElementById(`correction-input-${messageId}`);
+    const correctionText = input ? input.value.trim() : '';
+    
+    if (!correctionText) {
+        showWarningNotification('Vui lòng nhập góp ý', 'Bạn cần nhập nội dung câu trả lời đúng trước khi gửi.');
+        return;
+    }
+    
+    // Hide form
+    hideAceCorrectionForm(messageId);
+    
+    // Send feedback with correction
+    sendAceFeedback(messageId, 'thumbs_down', correctionText);
+}
+
+// Send feedback to ACE API
+function sendAceFeedback(messageId, rating, correctAnswer = null) {
+    const chatPanel = document.querySelector('.chat-panel');
+    const userId = chatPanel ? chatPanel.getAttribute('data-username') : 'default_user';
+    const botMessageDiv = document.getElementById(messageId);
+    if (!botMessageDiv) return;
+    
+    const botContent = botMessageDiv.querySelector('.message-content').innerText;
+    
+    // Find the preceding user message
+    let prevElement = botMessageDiv.previousElementSibling;
+    let userQuery = "";
+    while (prevElement) {
+        if (prevElement.classList.contains('user')) {
+            userQuery = prevElement.querySelector('.message-content').innerText;
+            break;
+        }
+        prevElement = prevElement.previousElementSibling;
+    }
+    
+    if (!userQuery) {
+        userQuery = "Query";
+    }
+    
+    // Highlight the button
+    if (rating === 'thumbs_up') {
+        const upBtn = botMessageDiv.querySelector('.thumbs-up-btn');
+        if (upBtn) upBtn.classList.add('active');
+        const downBtn = botMessageDiv.querySelector('.thumbs-down-btn');
+        if (downBtn) downBtn.classList.remove('active');
+    } else {
+        const downBtn = botMessageDiv.querySelector('.thumbs-down-btn');
+        if (downBtn) downBtn.classList.add('active');
+        const upBtn = botMessageDiv.querySelector('.thumbs-up-btn');
+        if (upBtn) upBtn.classList.remove('active');
+    }
+    
+    showNotification('🧠 Đang chạy ACE Reflector...', 'info', 'Đang phân tích phản hồi của bạn để cập nhật cẩm nang tự học của bot.');
+    
+    // Send POST request
+    fetch('/chat/ace/feedback', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            query: userQuery,
+            context: "RAG Document Retrieval Context",
+            response: botContent,
+            rating: rating,
+            correct_answer: correctAnswer,
+            user_id: userId
+        })
+    })
+    .then(res => {
+        if (!res.ok) {
+            throw new Error(`HTTP error ${res.status}`);
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showSuccessNotification('Cập nhật cẩm nang thành công!', 'ACE Curator đã ghi nhận phản hồi và tự động tối ưu hóa playbook.');
+            // Reload playbook if active
+            loadAcePlaybook();
+        } else {
+            showErrorNotification('Lỗi cập nhật cẩm nang', data.message || 'ACE Curator gặp lỗi.');
+        }
+    })
+    .catch(err => {
+        console.error('Feedback error:', err);
+        showErrorNotification('Lỗi kết nối ACE', 'Không thể kết nối tới máy chủ dịch vụ ACE.');
+    });
+}
+
+// Load ACE Playbook data
+function loadAcePlaybook(quiet = false) {
+    const listContainer = document.getElementById('aceBulletsList');
+    const textarea = document.getElementById('aceRawTextarea');
+    
+    if (!listContainer) return;
+    
+    const chatPanel = document.querySelector('.chat-panel');
+    const userId = chatPanel ? chatPanel.getAttribute('data-username') : 'default_user';
+    
+    if (!quiet) {
+        showInfoNotification('Đang tải cẩm nang...', 'Đang truy vấn dữ liệu từ MongoDB cho user: ' + userId);
+    }
+    
+    fetch('/chat/ace/playbook?user_id=' + encodeURIComponent(userId))
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Set raw text
+            if (textarea) textarea.value = data.playbook;
+            
+            // Build parsed bullets list
+            if (data.bullets && data.bullets.length > 0) {
+                let html = '';
+                let lastSection = '';
+                
+                data.bullets.forEach(bullet => {
+                    if (bullet.section !== lastSection) {
+                        lastSection = bullet.section;
+                        html += `<div style="font-weight: 600; font-size: 12px; color: #10a37f; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px dashed #ddd; padding-bottom: 3px;">${lastSection}</div>`;
+                    }
+                    
+                    html += `
+                        <div class="ace-bullet-item">
+                            <div class="ace-bullet-meta">
+                                <span style="font-weight:600; color:#555;">[${bullet.id}]</span>
+                                <div class="ace-bullet-stats">
+                                    <span class="ace-stat-badge ace-badge-helpful" title="Số lần hữu ích"><i class="fas fa-check"></i> ${bullet.helpful}</span>
+                                    <span class="ace-stat-badge ace-badge-harmful" title="Số lần gây hại"><i class="fas fa-times"></i> ${bullet.harmful}</span>
+                                </div>
+                            </div>
+                            <div style="color: #333; line-height: 1.3;">${bullet.content}</div>
+                        </div>
+                    `;
+                });
+                listContainer.innerHTML = html;
+            } else {
+                listContainer.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">Cẩm nang hiện đang trống. Hãy chat để tích lũy quy tắc!</div>';
+            }
+            
+            if (!quiet) {
+                if (data.was_created) {
+                    showSuccessNotification('Đã khởi tạo cẩm nang!', 'Chưa tìm thấy cẩm nang cũ. Đã tạo cẩm nang ACE mặc định cho ' + userId);
+                } else {
+                    showSuccessNotification('Tải cẩm nang thành công!', 'Đã tải thành công cẩm nang ACE cho ' + userId);
+                }
+            }
+        } else {
+            listContainer.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Không thể tải cẩm nang.</div>';
+            if (!quiet) {
+                showErrorNotification('Lỗi tải cẩm nang', data.message || 'Không thể tải cẩm nang.');
+            }
+        }
+    })
+    .catch(err => {
+        console.error('Load playbook error:', err);
+        listContainer.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Lỗi kết nối máy chủ ACE.</div>';
+        if (!quiet) {
+            showErrorNotification('Lỗi kết nối', 'Không thể kết nối máy chủ ACE.');
+        }
+    });
+}
+
+// Toggle parsed vs raw view of ACE Playbook
+function toggleAceView(viewType) {
+    const parsedView = document.getElementById('aceParsedView');
+    const rawView = document.getElementById('aceRawView');
+    const btnParsed = document.getElementById('btnAceParsed');
+    const btnRaw = document.getElementById('btnAceRaw');
+    
+    if (viewType === 'parsed') {
+        parsedView.style.display = 'block';
+        rawView.style.display = 'none';
+        btnParsed.classList.add('active');
+        btnParsed.style.background = '#fff';
+        btnParsed.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        btnParsed.style.color = '#333';
+        
+        btnRaw.classList.remove('active');
+        btnRaw.style.background = 'transparent';
+        btnRaw.style.boxShadow = 'none';
+        btnRaw.style.color = '#5f6368';
+    } else {
+        parsedView.style.display = 'none';
+        rawView.style.display = 'block';
+        btnRaw.classList.add('active');
+        btnRaw.style.background = '#fff';
+        btnRaw.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        btnRaw.style.color = '#333';
+        
+        btnParsed.classList.remove('active');
+        btnParsed.style.background = 'transparent';
+        btnParsed.style.boxShadow = 'none';
+        btnParsed.style.color = '#5f6368';
+    }
+}
+
+// Save edited playbook text
+function saveAcePlaybookText() {
+    const textarea = document.getElementById('aceRawTextarea');
+    const playbookText = textarea ? textarea.value : '';
+    
+    const chatPanel = document.querySelector('.chat-panel');
+    const userId = chatPanel ? chatPanel.getAttribute('data-username') : 'default_user';
+    
+    showNotification('💾 Đang lưu...', 'info', 'Đang cập nhật cẩm nang tự học...');
+    
+    fetch('/chat/ace/playbook', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            playbook: playbookText,
+            user_id: userId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessNotification('Lưu cẩm nang thành công!', 'Quy tắc hành vi mới đã được kích hoạt lập tức.');
+            loadAcePlaybook(true);
+        } else {
+            showErrorNotification('Lỗi lưu cẩm nang', data.message || 'Không thể lưu.');
+        }
+    })
+    .catch(err => {
+        console.error('Save playbook error:', err);
+        showErrorNotification('Lỗi kết nối', 'Không thể kết nối máy chủ để lưu cẩm nang.');
+    });
+}
+
+// Reset/Initialize Default ACE Playbook
+function resetAcePlaybookToDefault() {
+    if (!confirm('Bạn có chắc chắn muốn đặt lại cẩm nang ACE về trạng thái mặc định không? Các thay đổi thủ công sẽ bị ghi đè.')) {
+        return;
+    }
+    
+    const chatPanel = document.querySelector('.chat-panel');
+    const userId = chatPanel ? chatPanel.getAttribute('data-username') : 'default_user';
+    
+    showNotification('🧠 Đang khởi tạo...', 'info', 'Đang khởi tạo lại cẩm nang ACE mặc định cho ' + userId + '...');
+    
+    fetch('/chat/ace/playbook', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            playbook: '',
+            user_id: userId,
+            reset_to_default: true
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessNotification('Khởi tạo cẩm nang thành công!', 'Đã đặt lại cẩm nang ACE về trạng thái mặc định cho ' + userId);
+            loadAcePlaybook(true);
+        } else {
+            showErrorNotification('Lỗi khởi tạo cẩm nang', data.message || 'Không thể khởi tạo.');
+        }
+    })
+    .catch(err => {
+        console.error('Reset playbook error:', err);
+        showErrorNotification('Lỗi kết nối', 'Không thể kết nối máy chủ để khởi tạo cẩm nang.');
+    });
+}
+
+// Hook into tab switching to load playbook when active
+const originalSwitchStudioTab = switchStudioTab;
+switchStudioTab = function(tabName) {
+    originalSwitchStudioTab(tabName);
+    if (tabName === 'ace') {
+        loadAcePlaybook();
+    }
+};
 
 </script>
  

@@ -431,3 +431,81 @@ def debug_tools(body: DebugToolsRequest):
     except Exception as e:
         logger.error(f"Error in debug_tools: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── ACE Playbook Integration Routes ─────────────────────────────────────────
+
+class SavePlaybookRequest(BaseModel):
+    playbook: str
+    user_id: Optional[str] = None
+    reset_to_default: Optional[bool] = False
+
+class AceFeedbackRequest(BaseModel):
+    query: str
+    context: str
+    response: str
+    rating: str
+    correct_answer: Optional[str] = None
+    user_id: Optional[str] = None
+
+@router.get("/ace/playbook")
+def get_ace_playbook(user_id: Optional[str] = None):
+    """Retrieve the current playbook raw text and parsed JSON for the specific user."""
+    try:
+        from .ace_integration import load_playbook, parse_playbook_to_json, ACE_AVAILABLE
+        user_id = user_id or "default_user"
+        playbook_str, was_created = load_playbook(user_id, return_status=True)
+        parsed = parse_playbook_to_json(playbook_str)
+        return {
+            "success": True,
+            "playbook": playbook_str,
+            "bullets": parsed,
+            "ace_available": ACE_AVAILABLE,
+            "was_created": was_created
+        }
+    except Exception as e:
+        logger.error(f"Error getting ACE playbook: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ace/playbook")
+def save_ace_playbook(body: SavePlaybookRequest):
+    """Save the raw playbook text and rebuild the RAE index for the specific user."""
+    try:
+        from .ace_integration import save_playbook, DEFAULT_PLAYBOOK_CONTENT
+        user_id = body.user_id or "default_user"
+        content_to_save = body.playbook
+        if body.reset_to_default:
+            content_to_save = DEFAULT_PLAYBOOK_CONTENT.strip()
+        
+        success = save_playbook(user_id, content_to_save)
+        if success:
+            return {
+                "success": True,
+                "message": "Playbook reset to default successfully" if body.reset_to_default else "Playbook saved successfully",
+                "playbook": content_to_save
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save playbook")
+    except Exception as e:
+        logger.error(f"Error saving ACE playbook: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ace/feedback")
+def submit_ace_feedback(body: AceFeedbackRequest):
+    """Submit rating or correction for an answer to trigger real-time reflection and curation for the specific user."""
+    try:
+        from .ace_integration import reflect_and_curate_feedback
+        user_id = body.user_id or "default_user"
+        logger.info(f"Received ACE feedback for user {user_id}: rating={body.rating}, query='{body.query[:50]}...'")
+        result = reflect_and_curate_feedback(
+            user_id=user_id,
+            query=body.query,
+            context=body.context,
+            response=body.response,
+            rating=body.rating,
+            correct_answer=body.correct_answer
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error submitting ACE feedback: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

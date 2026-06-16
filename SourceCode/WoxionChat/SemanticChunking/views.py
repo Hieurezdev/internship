@@ -120,40 +120,30 @@ class SemanticChunkingAPIView(APIView):
             db = connect_to_mongodb()
             source_collection_name = user.role + "_database"  
             
-            # Debug info: Show collection name being used
-            # print(f"🔍 DEBUG: Using collection: {source_collection_name}")
-            # print(f"🔍 DEBUG: User role: {user.role}")
-            # print(f"🔍 DEBUG: Searching for user: {uploader_username}, file: {source_file}")
-            
             # Try multiple search strategies
             document = None
             
-            # Strategy 1: Search by both uploader_username and source_file (exact match)
+            # Strategy 1: Search by uploader_username and source_file (exact match)
             document = db[source_collection_name].find_one({
                 "uploader_username": uploader_username, 
                 "source_file": source_file
             })
-            # print(f"🔍 DEBUG: Strategy 1 result: {'Found' if document else 'Not found'}")
             
-            # Strategy 2: Search by source_file only (in case uploader_username doesn't match exactly)
+            # Strategy 2: Search by source_file only
             if not document:
                 document = db[source_collection_name].find_one({"source_file": source_file})
-                # print(f"🔍 DEBUG: Strategy 2 result: {'Found' if document else 'Not found'}")
                 
             # Strategy 3: Search by ObjectId if source_file looks like a MongoDB ObjectId
             if not document and len(source_file) == 24:
                 from bson import ObjectId
                 try:
                     document = db[source_collection_name].find_one({"_id": ObjectId(source_file)})
-                    # print(f"🔍 DEBUG: Strategy 3 (ObjectId) result: {'Found' if document else 'Not found'}")
-                except Exception as e:
-                    # print(f"🔍 DEBUG: Strategy 3 (ObjectId) error: {e}")
+                except Exception:
                     pass
                     
             # Strategy 4: Search by filename in file_data
             if not document:
                 document = db[source_collection_name].find_one({"file_data.filename": source_file})
-                # print(f"🔍 DEBUG: Strategy 4 result: {'Found' if document else 'Not found'}")
                 
             # Strategy 5: Search by partial match on source_file with regex
             if not document:
@@ -164,61 +154,91 @@ class SemanticChunkingAPIView(APIView):
                             {"file_data.filename": {"$regex": source_file.replace("(", "\\(").replace(")", "\\)"), "$options": "i"}}
                         ]
                     })
-                    # print(f"🔍 DEBUG: Strategy 5 result: {'Found' if document else 'Not found'}")
-                except Exception as e:
-                    # print(f"🔍 DEBUG: Strategy 5 error: {e}")
+                except Exception:
                     pass
 
             # Strategy 6: Find any document for this user (fallback)
             if not document:
                 document = db[source_collection_name].find_one({"uploader_username": uploader_username})
-                # print(f"🔍 DEBUG: Strategy 6 (any user doc) result: {'Found' if document else 'Not found'}")
+
+            # FALLBACK STRATEGY: Search in the other collection if not found in primary collection
+            if not document:
+                other_collection = "user_database" if source_collection_name == "admin_database" else "admin_database"
+                
+                # Strategy 1 in other collection
+                document = db[other_collection].find_one({
+                    "uploader_username": uploader_username, 
+                    "source_file": source_file
+                })
+                # Strategy 2 in other collection
+                if not document:
+                    document = db[other_collection].find_one({"source_file": source_file})
+                # Strategy 3 in other collection
+                if not document and len(source_file) == 24:
+                    from bson import ObjectId
+                    try:
+                        document = db[other_collection].find_one({"_id": ObjectId(source_file)})
+                    except Exception:
+                        pass
+                # Strategy 4 in other collection
+                if not document:
+                    document = db[other_collection].find_one({"file_data.filename": source_file})
+                # Strategy 5 in other collection
+                if not document:
+                    try:
+                        document = db[other_collection].find_one({
+                            "$or": [
+                                {"source_file": {"$regex": source_file.replace("(", "\\(").replace(")", "\\)"), "$options": "i"}},
+                                {"file_data.filename": {"$regex": source_file.replace("(", "\\(").replace(")", "\\)"), "$options": "i"}}
+                            ]
+                        })
+                    except Exception:
+                        pass
+                # Strategy 6 in other collection
+                if not document:
+                    document = db[other_collection].find_one({"uploader_username": uploader_username})
+                
+                # If found in other collection, switch to it
+                if document:
+                    source_collection_name = other_collection
 
             # If still not found, provide detailed debug info
             if not document:
-                # Get available documents for debugging
-                available_docs = list(db[source_collection_name].find({}, {"source_file": 1, "file_data.filename": 1, "uploader_username": 1, "_id": 1}).limit(10))
-                # print(f"🔍 DEBUG: Found {len(available_docs)} documents in collection")
+                other_collection = "user_database" if source_collection_name == "admin_database" else "admin_database"
+                
+                # Get available documents for debugging from both collections
+                available_docs_primary = list(db[source_collection_name].find({}, {"source_file": 1, "file_data.filename": 1, "uploader_username": 1, "_id": 1}).limit(5))
+                available_docs_other = list(db[other_collection].find({}, {"source_file": 1, "file_data.filename": 1, "uploader_username": 1, "_id": 1}).limit(5))
                 
                 available_info = []
-                for i, doc in enumerate(available_docs):
-                    info = f"{i+1}. User: {doc.get('uploader_username', 'N/A')}, "
-                    info += f"Source: {doc.get('source_file', 'N/A')}, "
-                    info += f"Filename: {doc.get('file_data', {}).get('filename', 'N/A')}, "
-                    info += f"ID: {str(doc.get('_id', 'N/A'))}"
+                available_info.append(f"--- Primary collection: {source_collection_name} ---")
+                for i, doc in enumerate(available_docs_primary):
+                    info = f"{i+1}. User: {doc.get('uploader_username', 'N/A')}, Source: {doc.get('source_file', 'N/A')}, Filename: {doc.get('file_data', {}).get('filename', 'N/A')}, ID: {str(doc.get('_id', 'N/A'))}"
+                    available_info.append(info)
+                    
+                available_info.append(f"\n--- Secondary collection: {other_collection} ---")
+                for i, doc in enumerate(available_docs_other):
+                    info = f"{i+1}. User: {doc.get('uploader_username', 'N/A')}, Source: {doc.get('source_file', 'N/A')}, Filename: {doc.get('file_data', {}).get('filename', 'N/A')}, ID: {str(doc.get('_id', 'N/A'))}"
                     available_info.append(info)
                 
-                debug_info = "\n".join(available_info) if available_info else "No documents found in collection"
+                debug_info = "\n".join(available_info)
                 
-                # Also check if user_database collection exists (legacy format)
-                try:
-                    legacy_docs = list(db["user_database"].find({}, {"source_file": 1, "file_data.filename": 1, "uploader_username": 1, "_id": 1}).limit(5))
-                    if legacy_docs:
-                        debug_info += f"\n\n--- Legacy user_database collection ({len(legacy_docs)} docs) ---\n"
-                        for i, doc in enumerate(legacy_docs):
-                            info = f"{i+1}. User: {doc.get('uploader_username', 'N/A')}, "
-                            info += f"Source: {doc.get('source_file', 'N/A')}, "
-                            info += f"Filename: {doc.get('file_data', {}).get('filename', 'N/A')}, "
-                            info += f"ID: {str(doc.get('_id', 'N/A'))}"
-                            debug_info += info + "\n"
-                except Exception as e:
-                    debug_info += f"\n\n--- Legacy collection check failed: {str(e)} ---"
-                
-                # Check if user has any documents in other collections
-                user_doc_count = db[source_collection_name].count_documents({"uploader_username": uploader_username})
-                debug_info += f"\n\n--- User '{uploader_username}' has {user_doc_count} documents in {source_collection_name} ---"
+                user_doc_count_primary = db[source_collection_name].count_documents({"uploader_username": uploader_username})
+                user_doc_count_other = db[other_collection].count_documents({"uploader_username": uploader_username})
+                debug_info += f"\n\n--- User '{uploader_username}' has {user_doc_count_primary} docs in {source_collection_name} and {user_doc_count_other} docs in {other_collection} ---"
                 
                 return Response(
                     {
                         "message": f"Không tìm thấy tài liệu '{source_file}' cho người dùng '{uploader_username}'.",
-                        "debug_info": f"Collection used: {source_collection_name}\nUser role: {user.role}\nSearch term: {source_file}\n\nAvailable documents:\n{debug_info}",
+                        "debug_info": f"Collections checked: {source_collection_name}, {other_collection}\nUser role: {user.role}\nSearch term: {source_file}\n\nAvailable documents:\n{debug_info}",
                         "search_strategies_tried": [
                             "uploader_username + source_file",
                             "source_file only", 
                             "MongoDB ObjectId",
                             "file_data.filename",
                             "regex partial match",
-                            "any document for user"
+                            "any document for user",
+                            "fallback search in second collection"
                         ],
                         "suggestion": "Try using the exact document ID (hash) shown in the frontend instead of filename"
                     },
@@ -311,32 +331,27 @@ class SemanticChunkingAPIView(APIView):
             document = None
             actual_source_file = source_file  # Default to provided source_file
             
-            # Strategy 1: Search by both uploader_username and source_file (exact match)
+            # Strategy 1: Search by uploader_username and source_file (exact match)
             document = db[source_collection_name].find_one({
                 "uploader_username": uploader_username, 
                 "source_file": source_file
             })
-            # print(f"🗑️ DELETE DEBUG: Strategy 1 result: {'Found' if document else 'Not found'}")
             
             # Strategy 2: Search by source_file only
             if not document:
                 document = db[source_collection_name].find_one({"source_file": source_file})
-                # print(f"🗑️ DELETE DEBUG: Strategy 2 result: {'Found' if document else 'Not found'}")
                 
             # Strategy 3: Search by ObjectId if source_file looks like a MongoDB ObjectId
             if not document and len(source_file) == 24:
                 from bson import ObjectId
                 try:
                     document = db[source_collection_name].find_one({"_id": ObjectId(source_file)})
-                    # print(f"🗑️ DELETE DEBUG: Strategy 3 (ObjectId) result: {'Found' if document else 'Not found'}")
-                except Exception as e:
-                    # print(f"🗑️ DELETE DEBUG: Strategy 3 (ObjectId) error: {e}")
+                except Exception:
                     pass
                     
             # Strategy 4: Search by filename in file_data
             if not document:
                 document = db[source_collection_name].find_one({"file_data.filename": source_file})
-                # print(f"🗑️ DELETE DEBUG: Strategy 4 result: {'Found' if document else 'Not found'}")
                 
             # Strategy 5: Search by partial match on source_file with regex
             if not document:
@@ -347,10 +362,46 @@ class SemanticChunkingAPIView(APIView):
                             {"file_data.filename": {"$regex": source_file.replace("(", "\\(").replace(")", "\\)"), "$options": "i"}}
                         ]
                     })
-                    # print(f"🗑️ DELETE DEBUG: Strategy 5 result: {'Found' if document else 'Not found'}")
-                except Exception as e:
-                    # print(f"🗑️ DELETE DEBUG: Strategy 5 error: {e}")
+                except Exception:
                     pass
+
+            # FALLBACK STRATEGY: Search in the other collection if not found in primary collection
+            if not document:
+                other_collection = "user_database" if source_collection_name == "admin_database" else "admin_database"
+                
+                # Strategy 1 in other collection
+                document = db[other_collection].find_one({
+                    "uploader_username": uploader_username, 
+                    "source_file": source_file
+                })
+                # Strategy 2 in other collection
+                if not document:
+                    document = db[other_collection].find_one({"source_file": source_file})
+                # Strategy 3 in other collection
+                if not document and len(source_file) == 24:
+                    from bson import ObjectId
+                    try:
+                        document = db[other_collection].find_one({"_id": ObjectId(source_file)})
+                    except Exception:
+                        pass
+                # Strategy 4 in other collection
+                if not document:
+                    document = db[other_collection].find_one({"file_data.filename": source_file})
+                # Strategy 5 in other collection
+                if not document:
+                    try:
+                        document = db[other_collection].find_one({
+                            "$or": [
+                                {"source_file": {"$regex": source_file.replace("(", "\\(").replace(")", "\\)"), "$options": "i"}},
+                                {"file_data.filename": {"$regex": source_file.replace("(", "\\(").replace(")", "\\)"), "$options": "i"}}
+                            ]
+                        })
+                    except Exception:
+                        pass
+                
+                # If found in other collection, switch to it
+                if document:
+                    source_collection_name = other_collection
 
             # If document found, get the actual source_file from the document
             if document:

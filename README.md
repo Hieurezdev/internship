@@ -1,4 +1,4 @@
-# Hệ thống Trò chuyện Thông minh Doanh nghiệp WoxionChat (Tích hợp ACE Engine)
+# Hệ thống Truy Xuất Dữ Liệu Nội Bộ Doanh Nghiệp WoxionChat 
 
 WoxionChat là một nền tảng Chatbot AI cấp doanh nghiệp kết hợp sức mạnh của Django Backend, dịch vụ đặc vụ thông minh agenticRAG (FastAPI và LangGraph), cơ chế tự tối ưu hóa ngữ cảnh ACE (Agentic Context Engineering), cùng các công nghệ trích xuất tri thức tiên tiến như OCR và Semantic Chunking.
 

@@ -452,15 +452,15 @@ class AceFeedbackRequest(BaseModel):
 def get_ace_playbook(user_id: Optional[str] = None):
     """Retrieve the current playbook raw text and parsed JSON for the specific user."""
     try:
-        from .ace_integration import load_playbook, parse_playbook_to_json, ACE_AVAILABLE
+        from .ace_integration import ACEIntegration
         user_id = user_id or "default_user"
-        playbook_str, was_created = load_playbook(user_id, return_status=True)
-        parsed = parse_playbook_to_json(playbook_str)
+        playbook_str, was_created = ACEIntegration.load_playbook(user_id, return_status=True)
+        parsed = ACEIntegration.parse_playbook_to_json(playbook_str)
         return {
             "success": True,
             "playbook": playbook_str,
             "bullets": parsed,
-            "ace_available": ACE_AVAILABLE,
+            "ace_available": ACEIntegration.ACE_AVAILABLE,
             "was_created": was_created
         }
     except Exception as e:
@@ -471,13 +471,14 @@ def get_ace_playbook(user_id: Optional[str] = None):
 def save_ace_playbook(body: SavePlaybookRequest):
     """Save the raw playbook text and rebuild the RAE index for the specific user."""
     try:
-        from .ace_integration import save_playbook, DEFAULT_PLAYBOOK_CONTENT
+        from .ace_integration import ACEIntegration
+        from .prompts import DEFAULT_PLAYBOOK_CONTENT
         user_id = body.user_id or "default_user"
         content_to_save = body.playbook
         if body.reset_to_default:
             content_to_save = DEFAULT_PLAYBOOK_CONTENT.strip()
         
-        success = save_playbook(user_id, content_to_save)
+        success = ACEIntegration.save_playbook(user_id, content_to_save)
         if success:
             return {
                 "success": True,
@@ -494,10 +495,10 @@ def save_ace_playbook(body: SavePlaybookRequest):
 def submit_ace_feedback(body: AceFeedbackRequest):
     """Submit rating or correction for an answer to trigger real-time reflection and curation for the specific user."""
     try:
-        from .ace_integration import reflect_and_curate_feedback
+        from .ace_integration import ACEIntegration
         user_id = body.user_id or "default_user"
         logger.info(f"Received ACE feedback for user {user_id}: rating={body.rating}, query='{body.query[:50]}...'")
-        result = reflect_and_curate_feedback(
+        result = ACEIntegration.reflect_and_curate_feedback(
             user_id=user_id,
             query=body.query,
             context=body.context,

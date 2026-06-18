@@ -32,7 +32,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'accounts',
     'SupportChatbot',
-    'TextToSpeech',
     'OCRfeature',  
     # 'chatbot_engine',  # Temporarily disabled due to circular import
     'social_django', 
@@ -96,7 +95,6 @@ MIGRATION_MODULES = {
     'accounts': None,           
     'OCRfeature': None,         
     'SupportChatbot': None,     
-    'TextToSpeech': None,
     # 'admin': None,
     # 'auth': None,
     # 'contenttypes': None,

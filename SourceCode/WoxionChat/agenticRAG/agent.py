@@ -383,8 +383,8 @@ Reference context:
         
         # Retrieve relevant ACE playbook guidelines
         try:
-            from .ace_integration import get_ace_context
-            playbook_guidelines = get_ace_context(state['input'], user_id=state['user_id'], top_k=10)
+            from .ace_integration import ACEIntegration
+            playbook_guidelines = ACEIntegration.get_ace_context(state['input'], user_id=state['user_id'], top_k=10)
         except Exception as e:
             logger.error(f"Error retrieving ACE playbook: {e}")
             playbook_guidelines = ""

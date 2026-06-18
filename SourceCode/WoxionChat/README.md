@@ -59,7 +59,6 @@ Bot_LOCAL/
 ├── SupportChatbot/      # Customer support bot module
 ├── agenticRAG/          # Retrieval-Augmented Generation engine
 ├── OCRfeature/          # OCR integration
-├── TextToSpeech/        # TTS functionality
 ├── SemanticChunking/    # NLP text processing
 ├── accounts/            # User authentication and roles
 ├── templates/           # HTML frontend templates

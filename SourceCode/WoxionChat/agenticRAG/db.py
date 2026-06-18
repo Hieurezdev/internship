@@ -91,10 +91,13 @@ def _get_bge_model():
             if _bge_model is None:
                 try:
                     from sentence_transformers import SentenceTransformer
-                    _bge_model = SentenceTransformer("BAAI/bge-m3")
+                    import torch
+                    # Utilize MPS on macOS for faster encoding if available
+                    device = "mps" if torch.backends.mps.is_available() else "cpu"
+                    _bge_model = SentenceTransformer("BAAI/bge-m3", device=device)
                 except ImportError as exc:
-                    safe_log_error("Failed to import sentence-transformers for BGE-M3 fallback")
-                    raise RuntimeError("Fallback BGE-M3 requires 'sentence-transformers' package.") from exc
+                    safe_log_error("Failed to import sentence-transformers for BGE-M3")
+                    raise RuntimeError("BGE-M3 requires 'sentence-transformers' package.") from exc
     return _bge_model
 
 def _get_bge_embedding(text: str) -> list[float]:
@@ -105,63 +108,42 @@ def _get_bge_embedding(text: str) -> list[float]:
         normalize_embeddings=True,
         convert_to_numpy=True,
     )
-    # Truncate/slice to 768 dimensions to match Gemini index sizes in MongoDB Atlas
-    return embedding[:768].tolist()
+    # Return full 1024 dimensions
+    return embedding.tolist()
 
-def get_embedding(text, model='models/gemini-embedding-001'):
-    """Get embeddings for text using Google's generative AI with caching, falling back to BGE-M3."""
+def get_embedding(text, model='BAAI/bge-m3'):
+    """Get embeddings for text using BGE-M3 with caching."""
     # Create cache key
     cache_key = hashlib.md5(f"{text}:{model}".encode()).hexdigest()
     
     # Check cache first
     with _cache_lock:
         if cache_key in _embedding_cache:
-            safe_log_info(f"Cache hit for embedding: {text[:50]}...")
             return _embedding_cache[cache_key]
     
     try:
         start_time = time.time()
-        from google.genai import types
-        result = _get_genai_client().models.embed_content(
-            model=model,
-            contents=text,
-            config=types.EmbedContentConfig(output_dimensionality=768)
-        )
-        embedding = result.embeddings[0].values
+        embedding = _get_bge_embedding(text)
         
         # Cache the result
         with _cache_lock:
             _embedding_cache[cache_key] = embedding
-            # Keep cache size reasonable (max 100 items)
-            if len(_embedding_cache) > 100:
-                # Remove oldest entries
-                keys_to_remove = list(_embedding_cache.keys())[:20]
+            # Keep cache size reasonable (max 200 items)
+            if len(_embedding_cache) > 200:
+                keys_to_remove = list(_embedding_cache.keys())[:40]
                 for key in keys_to_remove:
                     del _embedding_cache[key]
         
         embedding_time = time.time() - start_time
-        safe_log_info(f"Generated embedding in {embedding_time:.3f}s for: {text[:50]}...")
+        safe_log_info(f"Generated BGE-M3 embedding in {embedding_time:.3f}s for: {text[:50]}...")
         return embedding
     except Exception as e:
-        safe_log_error(f"Error getting Google embedding: {e}, falling back to BGE-M3...", exc_info=True)
-        try:
-            start_time = time.time()
-            embedding = _get_bge_embedding(text)
-            
-            # Cache the fallback result
-            with _cache_lock:
-                _embedding_cache[cache_key] = embedding
-            
-            fallback_time = time.time() - start_time
-            safe_log_info(f"Generated fallback BGE-M3 embedding in {fallback_time:.3f}s for: {text[:50]}...")
-            return embedding
-        except Exception as fallback_exc:
-            safe_log_error(f"Failed to get BGE-M3 fallback embedding: {fallback_exc}", exc_info=True)
-            return None
+        safe_log_error(f"Error getting BGE-M3 embedding: {e}", exc_info=True)
+        return None
 
-def get_embedding_batch(texts, model='models/gemini-embedding-001'):
-    """Get embeddings for multiple texts efficiently."""
-    results = []
+def get_embedding_batch(texts, model='BAAI/bge-m3'):
+    """Get embeddings for multiple texts efficiently in batches using BGE-M3."""
+    results = [None] * len(texts)
     uncached_texts = []
     uncached_indices = []
     
@@ -170,9 +152,8 @@ def get_embedding_batch(texts, model='models/gemini-embedding-001'):
         for i, text in enumerate(texts):
             cache_key = hashlib.md5(f"{text}:{model}".encode()).hexdigest()
             if cache_key in _embedding_cache:
-                results.append(_embedding_cache[cache_key])
+                results[i] = _embedding_cache[cache_key]
             else:
-                results.append(None)
                 uncached_texts.append(text)
                 uncached_indices.append(i)
     
@@ -180,31 +161,29 @@ def get_embedding_batch(texts, model='models/gemini-embedding-001'):
     if uncached_texts:
         try:
             start_time = time.time()
+            prepared_texts = [f"task: sentence similarity | query: {t.strip()}" for t in uncached_texts]
             
-            # Process uncached texts in parallel
-            def get_single_embedding(text):
-                return get_embedding(text, model)
+            # Batch encoding is significantly faster than ThreadPoolExecutor on single sentence loops
+            embeddings = _get_bge_model().encode(
+                prepared_texts,
+                batch_size=32,
+                normalize_embeddings=True,
+                convert_to_numpy=True,
+                show_progress_bar=False
+            )
             
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                future_to_index = {
-                    executor.submit(get_single_embedding, text): idx 
-                    for idx, text in zip(uncached_indices, uncached_texts)
-                }
-                
-                for future in as_completed(future_to_index):
-                    idx = future_to_index[future]
-                    try:
-                        embedding = future.result()
-                        results[idx] = embedding
-                    except Exception as e:
-                        safe_log_error(f"Error getting embedding for text {idx}: {e}")
-                        results[idx] = None
+            with _cache_lock:
+                for idx, emb in zip(uncached_indices, embeddings):
+                    emb_list = emb.tolist()
+                    results[idx] = emb_list
+                    cache_key = hashlib.md5(f"{texts[idx]}:{model}".encode()).hexdigest()
+                    _embedding_cache[cache_key] = emb_list
             
             batch_time = time.time() - start_time
-            safe_log_info(f"Generated {len(uncached_texts)} embeddings in {batch_time:.3f}s")
+            safe_log_info(f"Generated {len(uncached_texts)} embeddings in batch in {batch_time:.3f}s")
             
         except Exception as e:
-            safe_log_error(f"Error in batch embedding generation: {e}")
+            safe_log_error(f"Error in batch embedding generation: {e}", exc_info=True)
     
     return results
 

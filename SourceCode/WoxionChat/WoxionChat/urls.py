@@ -10,7 +10,6 @@ urlpatterns = [
     path('ocr/', include('OCRfeature.urls')),
     path('chat/', include('agenticRAG.urls')),
     path('support/', include('SupportChatbot.urls')),
-    path('tts/', include('TextToSpeech.urls')),
     path('oauth/', include('social_django.urls', namespace='social')),
     path('chunking/', include('SemanticChunking.urls')),
     path('takenote/', include('takenote.urls')),

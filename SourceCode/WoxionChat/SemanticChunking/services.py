@@ -2,57 +2,17 @@ import os
 import asyncio
 import re
 from threading import Lock
-import numpy as np
 from typing import List, Dict, Any
-
-from google import genai
-from google.genai import types
+import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()
 
-_client: genai.Client | None = None
-
-EMBEDDING_MODEL = "models/gemini-embedding-001"
-EMBEDDING_OUTPUT_DIMENSIONALITY = 768
-BGE_FALLBACK_MODEL = "BAAI/bge-m3"
+EMBEDDING_MODEL = "BAAI/bge-m3"
+EMBEDDING_OUTPUT_DIMENSIONALITY = 1024
 
 _bge_model: Any | None = None
 _bge_model_lock = Lock()
-
-
-def _get_client() -> genai.Client:
-    global _client
-    if _client is None:
-        api_key = os.environ.get('google_api_key') or os.environ.get('GOOGLE_API_KEY')
-        _client = genai.Client(api_key=api_key)
-    return _client
-
-
-# ---------------------------------------------------------------------------
-# Embedding helpers
-# ---------------------------------------------------------------------------
-
-def _prepare_embedding_text(text: str, task: str) -> str:
-    text = text.strip()
-    return f"task: {task} | query: {text}"
-
-
-def _is_usage_limit_error(error: Exception) -> bool:
-    message = str(error).lower()
-    return any(
-        token in message
-        for token in (
-            "resource exhausted",
-            "quota",
-            "rate limit",
-            "usage limit",
-            "too many requests",
-            "429",
-            "insufficient quota",
-            "exceeded",
-        )
-    )
 
 
 def _get_bge_model() -> Any:
@@ -64,14 +24,29 @@ def _get_bge_model() -> Any:
                     from sentence_transformers import SentenceTransformer  # pyright: ignore[reportMissingImports]
                 except ImportError as exc:
                     raise RuntimeError(
-                        "Fallback BGE-M3 yêu cầu cài đặt package 'sentence-transformers'."
+                        "BGE-M3 yêu cầu cài đặt package 'sentence-transformers'."
                     ) from exc
-
-                _bge_model = SentenceTransformer(BGE_FALLBACK_MODEL)
+                import torch
+                # Utilize MPS on macOS for faster encoding if available
+                device = "mps" if torch.backends.mps.is_available() else "cpu"
+                _bge_model = SentenceTransformer(EMBEDDING_MODEL, device=device)
     return _bge_model
 
 
-async def _get_bge_embedding(text: str, task: str) -> list[float]:
+# ---------------------------------------------------------------------------
+# Embedding helpers
+# ---------------------------------------------------------------------------
+
+def _prepare_embedding_text(text: str, task: str) -> str:
+    text = text.strip()
+    return f"task: {task} | query: {text}"
+
+
+async def get_embedding(
+    text: str,
+    task: str = "sentence similarity",
+    model: str = EMBEDDING_MODEL,
+) -> list[float]:
     prepared_text = _prepare_embedding_text(text, task)
 
     def _encode() -> list[float]:
@@ -80,36 +55,12 @@ async def _get_bge_embedding(text: str, task: str) -> list[float]:
             normalize_embeddings=True,
             convert_to_numpy=True,
         )
-        # BGE-M3 outputs 1024 dimensions. Slice to match EMBEDDING_OUTPUT_DIMENSIONALITY (768)
-        # to align shapes with Google AI embeddings and database schemas.
-        return embedding[:EMBEDDING_OUTPUT_DIMENSIONALITY].tolist()
+        return embedding.tolist()
 
     try:
         return await asyncio.to_thread(_encode)
     except Exception as exc:
-        raise Exception(f"Lỗi khi gọi BGE-M3 Embedding fallback: {exc}") from exc
-
-
-async def get_embedding(
-    text: str,
-    task: str = "sentence similarity",
-    model: str = EMBEDDING_MODEL,
-) -> list[float]:
-    try:
-        prepared_text = _prepare_embedding_text(text, task)
-        result = await asyncio.to_thread(
-            _get_client().models.embed_content,
-            model=model,
-            contents=prepared_text,
-            config=types.EmbedContentConfig(
-                output_dimensionality=EMBEDDING_OUTPUT_DIMENSIONALITY,
-            ),
-        )
-        return result.embeddings[0].values
-    except Exception as e:
-        if _is_usage_limit_error(e):
-            return await _get_bge_embedding(text, task)
-        raise Exception(f"Lỗi khi gọi Google AI Embedding API: {e}")
+        raise Exception(f"Lỗi khi gọi BGE-M3 Embedding: {exc}") from exc
 
 
 async def get_embeddings_batch(
@@ -119,55 +70,33 @@ async def get_embeddings_batch(
     batch_size: int = 50
 ) -> List[List[float]]:
     """
-    Get embeddings for a list of texts in batches to avoid 429 rate limit.
-    Includes retry logic with exponential backoff and BGE-M3 fallback.
+    Get embeddings for a list of texts in batches using local BGE-M3 model.
     """
     if not texts:
         return []
 
-    client = _get_client()
     embeddings = []
-    
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
         prepared_batch = [_prepare_embedding_text(t, task) for t in batch]
         
-        # Retry with exponential backoff if quota limit hit
-        max_retries = 5
-        base_delay = 2.0
-        
-        for attempt in range(max_retries):
-            try:
-                result = await asyncio.to_thread(
-                    client.models.embed_content,
-                    model=model,
-                    contents=prepared_batch,
-                    config=types.EmbedContentConfig(
-                        output_dimensionality=EMBEDDING_OUTPUT_DIMENSIONALITY,
-                    ),
-                )
-                
-                for emb in result.embeddings:
-                    embeddings.append(emb.values)
-                    
-                break
-            except Exception as e:
-                if _is_usage_limit_error(e) and attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)
-                    await asyncio.sleep(delay)
-                else:
-                    # Try BGE fallback as a last resort
-                    try:
-                        fallback_embeddings = []
-                        for t in batch:
-                            emb = await _get_bge_embedding(t, task)
-                            fallback_embeddings.append(emb)
-                        embeddings.extend(fallback_embeddings)
-                        break
-                    except Exception as fallback_exc:
-                        raise Exception(f"Lỗi khi gọi API Embedding (đã thử fallback BGE-M3): {e} | Fallback error: {fallback_exc}")
-                        
+        def _encode_batch() -> List[List[float]]:
+            emb = _get_bge_model().encode(
+                prepared_batch,
+                normalize_embeddings=True,
+                convert_to_numpy=True,
+                batch_size=len(prepared_batch)
+            )
+            return emb.tolist()
+            
+        try:
+            batch_emb = await asyncio.to_thread(_encode_batch)
+            embeddings.extend(batch_emb)
+        except Exception as exc:
+            raise Exception(f"Lỗi khi gọi BGE-M3 Embedding Batch: {exc}") from exc
+            
     return embeddings
+
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:

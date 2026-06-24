@@ -4,8 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from google import genai
-
 from .config import get_settings, load_environment
 from .db import init_db
 from .agent import create_agent_graph
@@ -20,7 +18,6 @@ from .tools import (
     direct_response,
     classify_query_type,
 )
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
 # Module-level state shared across requests
@@ -46,13 +43,7 @@ async def lifespan(app: FastAPI):
     )
     logger = logging.getLogger(__name__)
 
-    # ── Google Gen AI ────────────────────────────────────────────────────────
-    try:
-        genai_client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-        logger.info("Google Gen AI SDK client initialised.")
-    except Exception as e:
-        logger.error(f"Failed to initialise Google Gen AI client: {e}")
-        raise
+
 
     # ── MongoDB ──────────────────────────────────────────────────────────────
     class _FakeApp:
@@ -70,17 +61,17 @@ async def lifespan(app: FastAPI):
 
     # ── LangChain LLMs + ModelRegistry + Agent graph ─────────────────────────────────
     try:
-        # 1. Google Gemini—used for RAG answering and tool-calls
-        gemini_llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+        # 1. LLM Proxy (Qwen)—used for RAG answering and tool-calls
+        gemini_llm = ChatOpenAI(
+            model=settings.PROXY_MODEL,
+            base_url=settings.PROXY_BASE_URL,
+            api_key=settings.PROXY_API_KEY,
             temperature=0.3,
             max_tokens=None,
             timeout=180,
             max_retries=2,
-            convert_system_message_to_human=True,
-            api_key=settings.GOOGLE_API_KEY,
         )
-        logger.info("Gemini LLM initialised.")
+        logger.info(f"Proxy LLM initialised: {settings.PROXY_MODEL} @ {settings.PROXY_BASE_URL}")
 
         # 2. Local/self-hosted model via OpenAI-compatible endpoint
         local_llm = ChatOpenAI(
@@ -105,9 +96,9 @@ async def lifespan(app: FastAPI):
             direct_response,
             classify_query_type,
         ]
-        # Chạy ở chế độ SINGLE-MODEL (chỉ dùng Gemini) để demo theo yêu cầu
+        # Chạy ở chế độ SINGLE-MODEL (chỉ dùng Proxy LLM) để demo theo yêu cầu
         _agent_graph = create_agent_graph(gemini_llm, tools)
-        logger.info("LangGraph agent compiled (single-model: gemini).")
+        logger.info("LangGraph agent compiled (single-model: proxy).")
     except Exception as e:
         logger.error(f"Agent graph creation failed: {e}")
         raise

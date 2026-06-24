@@ -40,14 +40,18 @@
     
     /* === TYPEWRITER EFFECT === */
     .typewriter-cursor {
-        animation: blink-cursor 1s infinite;
-        font-weight: bold;
-        color: #10a37f;
+        display: inline-block;
+        width: 2px;
+        height: 1.1em;
+        background-color: #10a37f;
+        margin-left: 2px;
+        vertical-align: middle;
+        animation: blink-cursor 0.8s infinite;
     }
     
     @keyframes blink-cursor {
-        0%, 50% { opacity: 1; }
-        51%, 100% { opacity: 0; }
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
     }
     
     .message.bot.typing {
@@ -614,6 +618,18 @@
         line-height: 1.6;
         font-family: 'Inter', sans-serif;
         font-weight: 350;
+        animation: messageFadeIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+    
+    @keyframes messageFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.99);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
     }
     
     .message.user {
@@ -2203,21 +2219,13 @@ document.addEventListener('DOMContentLoaded', function() {
         );
     }, 2000);
     
-    // Notify about TTS feature
-    setTimeout(() => {
-        showInfoNotification(
-            '🔊 <strong>Text-to-Speech với FPT.AI đã sẵn sàng!</strong>',
-            '💬 Nhấp vào biểu tượng loa 🔊 ở góc phải mỗi tin nhắn để nghe giọng đọc chất lượng cao bằng tiếng Việt!'
-        );
-    }, 4000);
-    
     // Notify about Markdown support
     setTimeout(() => {
         showInfoNotification(
             '📝 <strong>Hỗ trợ định dạng Markdown!</strong>',
             '✨ WoxionChat giờ đây sẽ trả lời với định dạng Markdown đẹp mắt, bao gồm tiêu đề, danh sách, bảng, code blocks và nhiều hơn nữa!'
         );
-    }, 6000);
+    }, 4000);
     
     // Notify about Pin Messages feature
     setTimeout(() => {
@@ -2225,10 +2233,11 @@ document.addEventListener('DOMContentLoaded', function() {
             '📌 <strong>Chức năng ghim tin nhắn trong Studio!</strong>',
             '💾 Nhấp vào biểu tượng ghim 📌 ở tin nhắn bot để lưu vào Studio. Phím tắt: <kbd>Ctrl+Shift+S</kbd> để mở tab "Đã ghim"!'
         );
-    }, 8000);
+    }, 6000);
     
-    // Load user database
+    // Load user database & ACE Playbook
     loadUserDatabase();
+    loadAcePlaybook(true);
 });
 
 // User Database Functions
@@ -3828,12 +3837,20 @@ function updateStudioSavedCounter() {
     const clearBtn = document.querySelector('.studio-clear-btn');
     
     if (savedMessages.length > 0) {
-        counter.textContent = savedMessages.length;
-        counter.style.display = 'inline-block';
-        clearBtn.disabled = false;
+        if (counter) {
+            counter.textContent = savedMessages.length;
+            counter.style.display = 'inline-block';
+        }
+        if (clearBtn) {
+            clearBtn.disabled = false;
+        }
     } else {
-        counter.style.display = 'none';
-        clearBtn.disabled = true;
+        if (counter) {
+            counter.style.display = 'none';
+        }
+        if (clearBtn) {
+            clearBtn.disabled = true;
+        }
     }
 }
 
@@ -4019,7 +4036,7 @@ function addBotMessageWithTypewriter(content) {
     typewriterEffect(processedContent, `content-${messageId}`);
 }
 
-// Typewriter effect function
+// Typewriter effect function (optimized to render HTML elements correctly and fast)
 function typewriterEffect(text, elementId) {
     const element = document.getElementById(elementId);
     if (!element) return;
@@ -4030,23 +4047,54 @@ function typewriterEffect(text, elementId) {
         messageDiv.classList.add('typing');
     }
     
-    let currentIndex = 0;
-    let currentText = '';
-    const speed = 20; // Speed in milliseconds (lower = faster)
     const chatBody = document.getElementById('chatBody');
     
+    // Tokenize HTML to avoid rendering broken tag brackets (e.g. <p> typed char-by-char)
+    const tokens = [];
+    const regex = /(<[^>]+>|[^<]+)/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        tokens.push(match[0]);
+    }
+    
+    let tokenIndex = 0;
+    let charIndex = 0;
+    let currentHtml = '';
+    
+    // Speed configurations (optimized for speed and smooth visual flow)
+    const charsPerTick = 3;  // Outputs 3 characters at a time for faster rendering
+    const tickInterval = 8;  // 8ms interval between ticks
+    
     function typeNext() {
-        if (currentIndex < text.length) {
-            currentText += text[currentIndex];
-            element.innerHTML = currentText + '<span class="typewriter-cursor">|</span>';
+        if (tokenIndex < tokens.length) {
+            const token = tokens[tokenIndex];
             
-            // Auto-scroll to bottom while typing
-            chatBody.scrollTop = chatBody.scrollHeight;
-            
-            currentIndex++;
-            setTimeout(typeNext, speed);
+            if (token.startsWith('<')) {
+                // If token is an HTML tag, append it completely and immediately
+                currentHtml += token;
+                tokenIndex++;
+                charIndex = 0;
+                typeNext(); // Process next token immediately
+            } else {
+                // If token is text, append N characters
+                const slice = token.slice(charIndex, charIndex + charsPerTick);
+                currentHtml += slice;
+                charIndex += slice.length;
+                
+                element.innerHTML = currentHtml + '<span class="typewriter-cursor"></span>';
+                
+                // Keep scrolled to bottom during typing
+                chatBody.scrollTop = chatBody.scrollHeight;
+                
+                if (charIndex >= token.length) {
+                    tokenIndex++;
+                    charIndex = 0;
+                }
+                
+                setTimeout(typeNext, tickInterval);
+            }
         } else {
-            // Animation completed - remove cursor and typing class
+            // Animation completed
             element.innerHTML = text;
             if (messageDiv) {
                 messageDiv.classList.remove('typing');

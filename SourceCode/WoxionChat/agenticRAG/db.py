@@ -254,7 +254,7 @@ def find_similar_documents_hybrid_search(
     search_query: str,
     uploader_username: str,
     limit: int = 10,
-    candidates: int = 20,
+    candidates: int = 30,
     vector_search_index: str = "vector_search_on_users",
     atlas_search_index: str = "text_search_on_users" 
 ) -> list[dict]:

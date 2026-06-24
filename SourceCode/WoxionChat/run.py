@@ -22,7 +22,7 @@ def main():
     except ImportError:
         pass
     # Kiểm tra biến môi trường bắt buộc
-    required_env_vars = ["GOOGLE_API_KEY", "MONGO_CONNECTION_STRING"]
+    required_env_vars = ["PROXY_API_KEY", "MONGO_CONNECTION_STRING"]
     missing_vars = [v for v in required_env_vars if not os.environ.get(v)]
     if missing_vars:
         logger.error(f"Thiếu biến môi trường: {', '.join(missing_vars)}")

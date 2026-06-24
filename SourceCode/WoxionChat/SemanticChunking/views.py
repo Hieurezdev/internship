@@ -4,9 +4,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from pymongo import MongoClient
 import os
+import time
+import logging
 from asgiref.sync import async_to_sync  # 1. Import async_to_sync
 from .services import create_chunks_from_markdown
 from .models import AdminDocumentChunking, UserDocumentChunking
+
+logger = logging.getLogger(__name__)
 
 def connect_to_mongodb(mongo_url=os.environ.get('MONGODB_ATLAS_URI')):
     if not mongo_url:
@@ -248,13 +252,17 @@ class SemanticChunkingAPIView(APIView):
             # Sửa lỗi chính tả và xử lý nếu key không tồn tại
             markdown_text = document.get("raw_markdown") # Sửa thành 'raw_markdown'
             if not markdown_text:
+                 logger.warning(f"Document '{source_file}' has no 'raw_markdown' content.")
                  return Response(
                     {"message": f"Tài liệu '{source_file}' không có nội dung 'raw_markdown' để xử lý."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            logger.info(f"POST /chunking/documents/ - Chunking started for '{source_file}' (raw size: {len(markdown_text)} chars)")
             # 1. Gọi service một cách an toàn
+            service_start = time.time()
             processed_chunks = self.call_chunking_service(markdown_text, source_file)
+            logger.info(f"Chunking service completed in {time.time() - service_start:.3f}s. Generated {len(processed_chunks)} chunks.")
 
             if not processed_chunks:
                 return Response({"message": "Xử lý thành công nhưng không có chunk nào được tạo."}, status=status.HTTP_200_OK)
@@ -275,9 +283,12 @@ class SemanticChunkingAPIView(APIView):
                 ) for chunk in processed_chunks
             ]
 
+            logger.info(f"Deleting existing chunks and bulk inserting {len(chunks_to_create)} chunks into MongoDB...")
+            db_start = time.time()
             model_to_use.objects.filter(uploader_username=uploader_username, source_file=source_file).delete()
-            for chunk_object in chunks_to_create:
-                chunk_object.save()
+            if chunks_to_create:
+                model_to_use.objects.insert(chunks_to_create)
+            logger.info(f"Bulk insert completed in {time.time() - db_start:.3f}s")
             
             return Response(
                 {"message": f"Tài liệu đã được chunking và lưu thành công {len(chunks_to_create)} chunks."},
@@ -285,6 +296,7 @@ class SemanticChunkingAPIView(APIView):
             )
 
         except Exception as e:
+            logger.error(f"Error in SemanticChunkingAPIView POST: {e}", exc_info=True)
             return Response(
                 {"message": f"Service xử lý tài liệu đã báo lỗi: {e}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

@@ -17,7 +17,7 @@ SECRET_KEY = 'django-insecure-&(2xt*_5eoht1+00eudkbni74$r5haman_h0)yd!_9x&*=tfgf
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -31,7 +31,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'accounts',
-    'SupportChatbot',
     'OCRfeature',  
     # 'chatbot_engine',  # Temporarily disabled due to circular import
     'social_django', 
@@ -94,7 +93,6 @@ DATABASES = {
 MIGRATION_MODULES = {
     'accounts': None,           
     'OCRfeature': None,         
-    'SupportChatbot': None,     
     # 'admin': None,
     # 'auth': None,
     # 'contenttypes': None,
@@ -119,23 +117,22 @@ MONGODB_ATLAS_SETTINGS = {
     'DB_NAME': os.getenv('MONGODB_ATLAS_DB', 'WoxionChat_db'),
 }
 
-# Connect to MongoDB Atlas only
 try:
-    print("🌐 Connecting to MongoDB Atlas...")
+    print("Connecting to MongoDB Atlas...")
     mongoengine.connect(
         db=MONGODB_ATLAS_SETTINGS['DB_NAME'],
         host=MONGODB_ATLAS_SETTINGS['CONNECTION_STRING'],
         alias='default'
     )
-    print("✅ MongoDB Atlas connected successfully!")
+    print(" MongoDB Atlas connected successfully!")
     MONGODB_INFO = {
         'TYPE': 'MongoDB Atlas (Cloud)',
         'DATABASE': MONGODB_ATLAS_SETTINGS['DB_NAME'],
         'CONNECTION': 'Atlas Cloud Cluster'
     }
 except Exception as e:
-    print(f"❌ MongoDB Atlas Connection Error: {e}")
-    print("🔥 Application cannot start without MongoDB Atlas connection!")
+    print(f" MongoDB Atlas Connection Error: {e}")
+    print(" Application cannot start without MongoDB Atlas connection!")
     raise Exception(f"MongoDB Atlas connection failed: {e}")
 
 # Session Configuration - Use MongoDB sessions instead of Django's database sessions

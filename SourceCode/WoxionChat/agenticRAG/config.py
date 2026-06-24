@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     LOCAL_LLM_MODEL: str = "local-model"                   # model name on the server
     LOCAL_LLM_API_KEY: str = "not-needed"                  # placeholder if server requires a key
 
+    # LLM Proxy Configuration
+    PROXY_API_KEY: str = "458d41f783134eb3715cc8f371af8351"
+    PROXY_BASE_URL: str = "http://171.226.10.154:8080/v1"
+    PROXY_MODEL: str = "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4"
+
     # Redis
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379

@@ -61,13 +61,13 @@ def create_agent_graph(models: Union[ModelRegistry, BaseChatModel], tools):
           - ``models.gemini``  is used for RAG answering + tool-calls
           - ``models.local``   is used for direct (no-retrieval) responses
     tools  : list
-        LangChain tools to bind to the Gemini LLM.
+        LangChain tools to bind to the LLM.
     """
     # ── Resolve LLMs ─────────────────────────────────────────────────────────
     if isinstance(models, ModelRegistry):
         gemini_llm = models.gemini
         local_llm  = models.local
-        logger.info("AgenticRAG running in MULTIMODEL mode (Gemini + Local).")
+        logger.info("AgenticRAG running in MULTIMODEL mode (Proxy + Local).")
     else:
         # Backward-compatible: single LLM passed directly
         gemini_llm = models
@@ -132,35 +132,16 @@ def create_agent_graph(models: Union[ModelRegistry, BaseChatModel], tools):
             
             logger.info(f"Parallel retrieval found {len(user_context)} user docs and {len(admin_context)} admin docs")
             
-            # Rerank both document sets in parallel
-            def rerank_user_docs():
-                return rerank_documents.invoke({
-                    "user_question": state['input'], 
-                    "documents": user_context
-                })
-            
-            def rerank_admin_docs():
-                return rerank_documents.invoke({
-                    "user_question": state['input'], 
-                    "documents": admin_context
-                })
-            
-            # Parallel reranking
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                user_future = executor.submit(rerank_user_docs)
-                admin_future = executor.submit(rerank_admin_docs)
-                
-                reranked_user_context = user_future.result()
-                reranked_admin_context = admin_future.result()
-            
             def build_context_string(
-                reranked_documents: list[dict],
-                score_threshold: float = 0.5,
+                documents: list[dict],
+                score_threshold: float = 0.15,
                 top_k: int = 10
             ) -> str:
+                # Sort documents by their original similarity/relevance score
+                sorted_docs = sorted(documents, key=lambda x: x.get('score', 0), reverse=True)
                 filtered_docs = [
-                    doc for doc in reranked_documents
-                    if doc.get('new_score', 0) >= score_threshold
+                    doc for doc in sorted_docs
+                    if doc.get('score', 0) >= score_threshold
                 ]
 
                 top_docs = filtered_docs[:top_k]
@@ -170,15 +151,15 @@ def create_agent_graph(models: Union[ModelRegistry, BaseChatModel], tools):
                 context_parts = []
                 for i, doc in enumerate(top_docs):
                     content = doc.get('content', 'N/A')
-                    score = doc.get('new_score', 'N/A')
+                    score = doc.get('score', 'N/A')
                     context_part = f"--- Tài liệu {i+1} (Điểm: {score:.2f}) ---\n{content}"
                     context_parts.append(context_part)
 
                 return "\n\n".join(context_parts)
 
-            # Build context strings
-            user_context_string = build_context_string(reranked_user_context)
-            admin_context_string = build_context_string(reranked_admin_context)
+            # Build context strings directly from retrieved documents (no reranking)
+            user_context_string = build_context_string(user_context)
+            admin_context_string = build_context_string(admin_context)
             
             # Simple memory context building
             memory_context = ""
@@ -241,17 +222,15 @@ def create_agent_graph(models: Union[ModelRegistry, BaseChatModel], tools):
         # Get basic context - fix function call with proper parameters
         user_context = find_document_from_user.invoke({"search_query": state['input'], "uploader_username": state['user_id']})
         
-        reranked_user_context = rerank_documents.invoke({"user_question": state['input'], "documents": user_context})    
         def build_context_string(
-            reranked_documents: list[dict],
-            score_threshold: float = 0.5,
+            documents: list[dict],
+            score_threshold: float = 0.15,
             top_k: int = 10
         ) -> str:
-        
-        
+            sorted_docs = sorted(documents, key=lambda x: x.get('score', 0), reverse=True)
             filtered_docs = [
-                doc for doc in reranked_documents
-                if doc.get('new_score', 0) >= score_threshold
+                doc for doc in sorted_docs
+                if doc.get('score', 0) >= score_threshold
             ]
 
             top_docs = filtered_docs[:top_k]
@@ -260,14 +239,14 @@ def create_agent_graph(models: Union[ModelRegistry, BaseChatModel], tools):
             context_parts = []
             for i, doc in enumerate(top_docs):
                 content = doc.get('content', 'N/A')
-                score = doc.get('new_score', 'N/A')
+                score = doc.get('score', 'N/A')
                 context_part = f"--- Tài liệu người dùng {i+1} (Điểm: {score:.2f}) ---\n{content}"
                 context_parts.append(context_part)
 
             return "\n\n".join(context_parts)
 
-        user_context_string = build_context_string(reranked_user_context)
-        logger.info(f"Found {len(reranked_user_context)} user documents for user_id '{state['user_id']}'")
+        user_context_string = build_context_string(user_context)
+        logger.info(f"Found {len(user_context)} user documents for user_id '{state['user_id']}'")
         
         # Simple memory context building
         memory_context = ""
@@ -305,17 +284,15 @@ def create_agent_graph(models: Union[ModelRegistry, BaseChatModel], tools):
         # Get basic context - fix function call with proper parameters
         admin_context = find_document_from_admin.invoke({"search_query": state['input'], "uploader_username": state['user_id']})
         
-        reranked_admin_context = rerank_documents.invoke({"user_question": state['input'], "documents": admin_context})    
         def build_context_string(
-            reranked_documents: list[dict],
-            score_threshold: float = 0.5,
+            documents: list[dict],
+            score_threshold: float = 0.15,
             top_k: int = 5
         ) -> str:
-        
-        
+            sorted_docs = sorted(documents, key=lambda x: x.get('score', 0), reverse=True)
             filtered_docs = [
-                doc for doc in reranked_documents
-                if doc.get('new_score', 0) >= score_threshold
+                doc for doc in sorted_docs
+                if doc.get('score', 0) >= score_threshold
             ]
 
             top_docs = filtered_docs[:top_k]
@@ -324,14 +301,14 @@ def create_agent_graph(models: Union[ModelRegistry, BaseChatModel], tools):
             context_parts = []
             for i, doc in enumerate(top_docs):
                 content = doc.get('content', 'N/A')
-                score = doc.get('new_score', 'N/A')
+                score = doc.get('score', 'N/A')
                 context_part = f"--- Tài liệu quản trị {i+1} (Điểm: {score:.2f}) ---\n{content}"
                 context_parts.append(context_part)
 
             return "\n\n".join(context_parts)
 
-        admin_context_string = build_context_string(reranked_admin_context)
-        logger.info(f"Found {len(reranked_admin_context)} admin documents for user_id '{state['user_id']}'")
+        admin_context_string = build_context_string(admin_context)
+        logger.info(f"Found {len(admin_context)} admin documents for user_id '{state['user_id']}'")
         
         # Combine user context and admin context
         combined_context = ""
@@ -416,10 +393,10 @@ Reference context:
         agent_chain = prompt | llm_with_tools
         
         try:
-            logger.info(f"[Gemini] Calling LLM with user_id {state['user_id']} clearly specified")
+            logger.info(f"[Proxy] Calling LLM with user_id {state['user_id']} clearly specified")
             agent_outcome_message = agent_chain.invoke({"messages": messages})
         except Exception as e:
-            logger.error(f"[Gemini] LLM invocation failed: {e}", exc_info=True)
+            logger.error(f"[Proxy] LLM invocation failed: {e}", exc_info=True)
             agent_outcome_message = AIMessage(content=f"Error calling LLM: {e}")
 
         return {"messages": [agent_outcome_message]}
@@ -453,7 +430,7 @@ Reference context:
             total_messages = len(all_messages)
             if total_messages > 15:  
                 try:
-                    logger.info("Creating intelligent conversation summary using Gemini...")
+                    logger.info("Creating intelligent conversation summary using LLM Proxy...")
                     
                     # Prepare messages for summarization
                     message_contents = []
@@ -560,8 +537,8 @@ Reference context:
                 result = result_msg.content.strip()
                 logger.info(f"[Local] Direct response generated: {result[:100]}...")
             except Exception as local_err:
-                logger.warning(f"[Local] model failed ({local_err}), falling back to Gemini tool")
-                # Fallback to the existing direct_response tool (uses Gemini internally)
+                logger.warning(f"[Local] model failed ({local_err}), falling back to Proxy tool")
+                # Fallback to the existing direct_response tool (uses Proxy internally)
                 result = direct_response.invoke({
                     "user_query": state["input"],
                     "query_type": query_type,

@@ -4,6 +4,9 @@ services:
       context: ..
       dockerfile: WoxionChat/Dockerfile
     container_name: woxionchat-web
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
@@ -22,6 +25,9 @@ services:
       context: ..
       dockerfile: WoxionChat/Dockerfile
     container_name: woxionchat-agentic-rag
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
       # Lắng nghe ở 0.0.0.0 để có thể truy cập được từ bên ngoài container
       - FASTAPI_HOST=0.0.0.0

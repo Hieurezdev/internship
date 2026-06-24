@@ -221,13 +221,12 @@ class ACEIntegration:
 
     @staticmethod
     def get_openai_compatible_gemini_client() -> openai.OpenAI:
-        """Initialize OpenAI client configured to hit Gemini API."""
-        api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("google_api_key")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY not found in environment variables.")
+        """Initialize OpenAI client configured to hit LLM Proxy API."""
+        from .config import get_settings
+        settings = get_settings()
         return openai.OpenAI(
-            api_key=api_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+            api_key=settings.PROXY_API_KEY,
+            base_url=settings.PROXY_BASE_URL
         )
 
     @classmethod
@@ -251,7 +250,8 @@ class ACEIntegration:
         try:
             # 1. Initialize client & models
             client = cls.get_openai_compatible_gemini_client()
-            model_name = "gemini-2.5-flash"
+            from .config import get_settings
+            model_name = get_settings().PROXY_MODEL
 
             reflector = Reflector(client, "openai", model_name)
             curator = Curator(client, "openai", model_name)

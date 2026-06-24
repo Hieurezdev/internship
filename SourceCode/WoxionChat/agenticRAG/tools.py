@@ -4,43 +4,50 @@ import re
 from typing import List, Dict, Any
 from langchain.agents import tool
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from .db import (
     find_similar_documents_hybrid_search, 
     find_similar_documents_vector_search,
     get_embedding
 )
-from google import genai
-from google.genai import types
 import json
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+import requests
+from .config import get_settings
 
 logger = logging.getLogger(__name__)
 
-_safety_settings = [
-    types.SafetySetting(category='HARM_CATEGORY_HARASSMENT',        threshold='BLOCK_MEDIUM_AND_ABOVE'),
-    types.SafetySetting(category='HARM_CATEGORY_HATE_SPEECH',       threshold='BLOCK_MEDIUM_AND_ABOVE'),
-    types.SafetySetting(category='HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold='BLOCK_MEDIUM_AND_ABOVE'),
-    types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='BLOCK_ONLY_HIGH'),
-]
 
-_generation_config = types.GenerateContentConfig(
-    temperature=0.1,
-    top_p=0.95,
-    safety_settings=_safety_settings,
-)
-
-_genai_client: genai.Client | None = None
-
-def _get_model_client() -> genai.Client:
-    """Returns a lazily initialised google-genai Client."""
-    global _genai_client
-    if _genai_client is None:
-        api_key = os.environ.get('GOOGLE_API_KEY') or os.environ.get('google_api_key')
-        _genai_client = genai.Client(api_key=api_key)
-    return _genai_client
+def _call_llm_proxy(prompt: str, temperature: float = 0.1, thinking: bool = False) -> str:
+    """Helper to call the self-hosted LLM Proxy API."""
+    settings = get_settings()
+    try:
+        url = f"{settings.PROXY_BASE_URL.rstrip('/')}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.PROXY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": settings.PROXY_MODEL,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "thinking": thinking,
+            "temperature": temperature
+        }
+        response = requests.post(url, headers=headers, json=data, timeout=120)
+        if response.status_code != 200:
+            logger.error(f"LLM proxy returned error status {response.status_code}: {response.text}")
+        response.raise_for_status()
+        res_json = response.json()
+        return res_json["choices"][0]["message"]["content"]
+    except requests.exceptions.HTTPError as he:
+        logger.error(f"HTTPError calling LLM proxy: {he}. Response: {he.response.text}")
+        raise
+    except Exception as e:
+        logger.error(f"Error calling LLM proxy: {e}")
+        raise
 
 
 def safe_log_info(message: str):
@@ -109,13 +116,8 @@ def summarize_conversation(messages: List[str], user_preferences: Dict[str, Any]
             Để tóm tắt cuộc hội thoại, hãy ngắn gọn và dễ hiểu.
         """
         
-        # Call Gemini API using sync
-        response = _get_model_client().models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=_generation_config
-        )
-        summary = response.text.strip()
+        # Call LLM Proxy API using sync helper
+        summary = _call_llm_proxy(prompt, temperature=0.1, thinking=False).strip()
         
         safe_log_info(f"Generated summary: {summary[:100]}...")
         return summary
@@ -254,12 +256,16 @@ def rerank_documents(user_question: str, documents: list[dict]) -> list[dict]:
     if not documents:
         return []
 
+    # Limit to top 12 documents to prevent hitting the 8192 token limit of the LLM Proxy
     docs_for_prompt = []
-    for doc in documents:
+    for doc in documents[:12]:
         doc['_id'] = str(doc['_id'])
+        content = doc.get('content', '')
+        if len(content) > 1200:
+            content = content[:1200] + "... [NỘI DUNG ĐÃ BỊ CẮT BỚT ĐỂ TRÁNH QUÁ GIỚI HẠN TOKEN]"
         docs_for_prompt.append({
             "id": doc['_id'],
-            "content": doc.get('content', '')
+            "content": content
         })
 
     prompt = f"""
@@ -331,12 +337,8 @@ def rerank_documents(user_question: str, documents: list[dict]) -> list[dict]:
     """
 
     try:
-        response = _get_model_client().models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=_generation_config
-        )
-        cleaned_response_text = response.text.strip().replace("```json", "").replace("```", "")
+        response_text = _call_llm_proxy(prompt, temperature=0.1, thinking=False)
+        cleaned_response_text = response_text.strip().replace("```json", "").replace("```", "")
         rerank_results = json.loads(cleaned_response_text)
 
         scores_map = {item['id']: item['new_score'] for item in rerank_results}
@@ -464,12 +466,7 @@ def classify_query_type(user_query: str) -> Dict[str, Any]:
         }}
         """
 
-        response = _get_model_client().models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=_generation_config
-        )
-        result_text = response.text.strip()
+        result_text = _call_llm_proxy(prompt, temperature=0.1, thinking=False).strip()
         
         # Clean up response text
         result_text = result_text.replace("```json", "").replace("```", "").strip()
@@ -585,12 +582,7 @@ def direct_response(user_query: str, query_type: str = "general_chat") -> str:
         Hãy trả lời một cách tự nhiên nhất có thể!
         """
 
-        response = _get_model_client().models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=_generation_config
-        )
-        result = response.text.strip()
+        result = _call_llm_proxy(prompt, temperature=0.7, thinking=False).strip()
         
         # Clean up response
         result = result.replace("```", "").replace("json", "").strip()

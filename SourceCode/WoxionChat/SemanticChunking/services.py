@@ -1,12 +1,16 @@
 import os
 import asyncio
 import re
+import logging
+import time
 from threading import Lock
 from typing import List, Dict, Any
 import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 EMBEDDING_MODEL = "BAAI/bge-m3"
 EMBEDDING_OUTPUT_DIMENSIONALITY = 1024
@@ -129,7 +133,10 @@ async def _semantic_chunk(
         return []
 
     # Embed all sentences using the batch function
+    logger.info(f"Generating embeddings for {len(sentences)} sentences using {EMBEDDING_MODEL}...")
+    start_time = time.time()
     embeddings = await get_embeddings_batch(sentences, task="sentence similarity")
+    logger.info(f"Successfully generated sentence embeddings in {time.time() - start_time:.3f}s.")
 
     # Consecutive cosine distances (higher distance → bigger semantic shift)
     distances: list[float] = []
@@ -141,6 +148,7 @@ async def _semantic_chunk(
         return [" ".join(sentences)]
 
     threshold = float(np.percentile(distances, breakpoint_percentile))
+    logger.info(f"Semantic chunking distance threshold: {threshold:.4f} (percentile: {breakpoint_percentile}%)")
 
     # Build chunks
     chunks: list[str] = []
@@ -153,6 +161,7 @@ async def _semantic_chunk(
             current.append(sentences[i + 1])
     chunks.append(" ".join(current))
 
+    logger.info(f"Split {len(sentences)} sentences into {len(chunks)} semantic chunks.")
     return chunks
 
 
@@ -192,19 +201,27 @@ async def create_chunks_from_markdown(
     breakpoint_percentile: float = 95.0,
 ) -> List[Dict[str, Any]]:
 
+    logger.info(f"Starting chunking processing for source_file: '{source_file}'")
+    start_time = time.time()
     cleaned_text = clean_markdown_text(markdown_text)
     if not cleaned_text:
+        logger.warning(f"No content to chunk after cleaning for '{source_file}'")
         return []
 
+    logger.info(f"Cleaned markdown size: {len(cleaned_text)} chars. Splitting into sentences...")
     try:
         sentences = _split_into_sentences(cleaned_text)
+        logger.info(f"Found {len(sentences)} sentences in '{source_file}'")
         chunks_content_list = await _semantic_chunk(
             sentences,
             breakpoint_percentile=breakpoint_percentile,
         )
 
         # Embed each final chunk in batch
+        logger.info(f"Generating clustering embeddings for final {len(chunks_content_list)} chunks...")
+        chunk_emb_start = time.time()
         embeddings_results = await get_embeddings_batch(chunks_content_list, task="clustering")
+        logger.info(f"Generated final chunk embeddings in {time.time() - chunk_emb_start:.3f}s")
 
         processed_chunks = []
         for chunk_content, chunk_embedding in zip(chunks_content_list, embeddings_results):
@@ -214,7 +231,9 @@ async def create_chunks_from_markdown(
                 "embedding": chunk_embedding,
             })
 
+        logger.info(f"Completed chunking processing for '{source_file}' in {time.time() - start_time:.3f}s. Total chunks: {len(processed_chunks)}")
         return processed_chunks
 
     except Exception as e:
+        logger.error(f"Error in create_chunks_from_markdown for '{source_file}': {e}", exc_info=True)
         raise Exception(f"Lỗi khi xử lý chunking cho tài liệu {source_file}: {e}")
